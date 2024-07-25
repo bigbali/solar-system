@@ -1,15 +1,20 @@
 use std::f32::consts::PI;
 
-use bevy::{color::palettes::tailwind, core_pipeline::bloom::BloomSettings, prelude::*};
+use bevy::{core_pipeline::bloom::BloomSettings, prelude::*};
 use bevy_flycam::{FlyCam, MovementSettings, NoCameraPlayerPlugin};
-use planet::{planets_create_system, planets_update_system, Planet, Star, SUN};
+use planet::{planets_create_system, planets_update_system, Body};
 
 use bevy_mod_imgui::prelude::*;
 
 mod planet;
+#[derive(Resource)]
+pub struct SimulationSpeedMultiplier(f32);
 
-#[derive(Default, Reflect, GizmoConfigGroup)]
-struct MyRoundGizmos {}
+#[derive(Resource)]
+pub struct Follow {
+    entity: Option<Entity>,
+    active: bool,
+}
 
 fn main() {
     App::new()
@@ -18,62 +23,98 @@ fn main() {
         .add_plugins(bevy_mod_imgui::ImguiPlugin::default())
         .add_systems(Startup, (setup, planets_create_system, spawn_player))
         .add_systems(PostStartup, log_system)
-        .add_systems(Update, (planets_update_system, planet_gizmos, ui))
-        .init_gizmo_group::<MyRoundGizmos>()
+        .add_systems(
+            Update,
+            (planets_update_system, planet_gizmos, ui, follow_object),
+        )
         .insert_resource(MovementSettings {
-            sensitivity: 0.00015, // default: 0.00012
-            speed: 500.0,         // default: 12.0
+            sensitivity: 0.00012, // default: 0.00012
+            speed: 50.0,          // default: 12.0
         })
         .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(SimulationSpeedMultiplier(1.0))
+        .insert_resource(AmbientLight {
+            color: Color::BLACK,
+            brightness: 0.0,
+        })
+        .insert_resource(Follow {
+            entity: None,
+            active: false,
+        })
         .run();
-}
-
-fn gizmo_color_text(config: &LightGizmoConfigGroup) -> String {
-    match config.color {
-        LightGizmoColor::Manual(color) => format!("Manual {}", Srgba::from(color).to_hex()),
-        LightGizmoColor::Varied => "Random from entity".to_owned(),
-        LightGizmoColor::MatchLightColor => "Match light color".to_owned(),
-        LightGizmoColor::ByLightType => {
-            format!(
-                "Point {}, Spot {}, Directional {}",
-                Srgba::from(config.point_light_color).to_hex(),
-                Srgba::from(config.spot_light_color).to_hex(),
-                Srgba::from(config.directional_light_color).to_hex()
-            )
-        }
-    }
 }
 
 fn ui(
     mut context: NonSendMut<ImguiContext>,
-    query: Query<&Planet>,
-    mut camera: Query<(&mut Camera, &mut Transform)>,
+    query: Query<(&Transform, &Body, Entity), Without<Camera>>,
+    mut camera: Query<&mut Transform, With<Camera>>,
     mut camera_speed: ResMut<MovementSettings>,
+    mut follow: ResMut<Follow>,
+    mut speed: ResMut<SimulationSpeedMultiplier>,
 ) {
     let ui = context.ui();
     let window = ui.window("Solar System");
 
+    let sun = query
+        .iter()
+        .find(|(_, body, _)| body.data.name.unwrap_or("unnamed") == "Sun");
+
+    let sun_transform = match sun {
+        Some((transform, _, _)) => transform,
+        None => return,
+    };
+
     window
-        .size([300.0, 700.0], imgui::Condition::FirstUseEver)
+        .size([500.0, 800.0], imgui::Condition::FirstUseEver)
         .position([0.0, 0.0], imgui::Condition::FirstUseEver)
         .build(|| {
-            ui.text("Planets");
+            ui.text("Objects");
             ui.separator();
 
-            let mut camera_transform = camera.single_mut().1;
+            let mut camera_transform = camera.single_mut();
 
-            for planet in query.iter() {
-                if ui.button_with_size(planet.name, [290.0, 60.0]) {
+            for (transform, body, entity) in query.iter() {
+                if ui.button_with_size(body.data.name.unwrap_or("unnamed"), [250.0, 60.0]) {
                     camera_transform.translation = Vec3 {
-                        x: planet.data.position.x,
-                        y: planet.data.position.y,
-                        z: planet.data.position.z + planet.data.radius * 2.0,
+                        x: transform.translation.x,
+                        y: transform.translation.y,
+                        z: transform.translation.z + body.data.radius * 2.0,
                     };
+
+                    if follow.entity != Some(entity) {
+                        follow.entity = Some(entity);
+                    } else {
+                        follow.entity = None;
+                    }
                 }
+
+                ui.same_line();
+
+                ui.group(|| {
+                    if body.data.name.unwrap_or("unnamed") != "Sun" {
+                        ui.text(format!(
+                            "d from sun {}",
+                            transform.translation.distance(sun_transform.translation)
+                        ));
+                    }
+                    ui.text(format!("velocity x {}", body.data.velocity.x));
+                    ui.text(format!("velocity y {}", body.data.velocity.y));
+                    ui.text(format!("velocity z {}", body.data.velocity.z));
+                    ui.text(format!(
+                        "mass: {}, radius:{}",
+                        body.data.mass, body.data.radius
+                    ));
+                });
             }
+
+            ui.checkbox("Follow Planet", &mut follow.active);
 
             ui.input_float("Camera Speed", &mut camera_speed.speed)
                 .step(100.0)
+                .build();
+
+            ui.input_float("Simulation Speed", &mut speed.0)
+                .step(0.1)
                 .build();
 
             let mouse_pos = ui.io().mouse_pos;
@@ -91,39 +132,7 @@ fn ui(
         });
 }
 
-#[derive(Component)]
-struct GizmoColorText;
-
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut config_store: ResMut<GizmoConfigStore>,
-) {
-    let text_style = TextStyle::default();
-    let (_, light_config) = config_store.config_mut::<LightGizmoConfigGroup>();
-    light_config.draw_all = true;
-    light_config.color = LightGizmoColor::MatchLightColor;
-
-    commands.spawn((
-        TextBundle::from_sections([
-            TextSection::new("Gizmo color mode: ", text_style.clone()),
-            TextSection::new(gizmo_color_text(light_config), text_style),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-        GizmoColorText,
-    ));
-
-    commands.insert_resource(AmbientLight {
-        color: Color::BLACK,
-        brightness: 0.0,
-    });
-}
+fn setup(mut commands: Commands) {}
 
 #[derive(Debug, Component)]
 struct Player;
@@ -150,7 +159,7 @@ fn spawn_player(mut commands: Commands) {
                     }
                     .into(),
                     // tonemapping: Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
-                    transform: Transform::from_xyz(0.0, 0.0, SUN.data.radius * 1.2)
+                    transform: Transform::from_xyz(0.0, 0.0, 696_300.0 / 999_999.0)
                         .looking_at(Vec3::ZERO, Vec3::Y),
                     ..default()
                 },
@@ -160,48 +169,52 @@ fn spawn_player(mut commands: Commands) {
         });
 }
 
-fn log_system(
-    planets: Query<&Planet>,
-    stars: Query<&Star>,
-    lights: Query<(&PointLight, &Transform)>,
-) {
+fn log_system(bodies: Query<&Body>) {
     println!("Debug data");
+    println!("===============================================================");
 
-    for planet in planets.iter() {
-        println!("{:?}", planet);
-    }
-
-    for star in stars.iter() {
-        println!("{:?}", star);
-    }
-
-    for light in lights.iter() {
-        println!("{:?}, {:?}", light.0, light.1);
+    for body in bodies.iter() {
+        println!("{:?}", body);
     }
 }
 
-fn planet_gizmos(
-    mut gizmos: Gizmos,
-    // mut my_gizmos: Gizmos<MyRoundGizmos>,
-    query: Query<&Planet>,
-    // time: Res<Time>,
-) {
+fn planet_gizmos(mut gizmos: Gizmos, query: Query<(&Body, &Transform)>) {
     gizmos.grid(
         Vec3::ZERO,
         Quat::from_rotation_x(PI / 2.),
-        UVec2::splat(500),
-        Vec2::new(100_000.0, 100_000.0),
+        UVec2::splat(50),
+        Vec2::new(1_000.0, 1_000.0),
         LinearRgba::BLUE,
     );
 
-    // println!("Creating gizmos");
-
-    for planet in query.iter() {
+    for (body, transform) in query.iter() {
         gizmos.sphere(
-            planet.data.position,
+            transform.translation,
             Quat::IDENTITY,
-            planet.data.radius * 10.0,
-            Color::from(tailwind::PINK_700),
+            body.data.radius * 100.0,
+            body.data.color,
         );
+
+        gizmos.arrow(
+            transform.translation,
+            transform.translation + body.data.velocity * 100000.0,
+            Color::WHITE,
+        );
+    }
+}
+
+fn follow_object(
+    mut camera: Query<&mut Transform, With<Camera>>,
+    query: Query<(&Transform, &Body), Without<Camera>>,
+    follow: Res<Follow>,
+) {
+    if follow.active && follow.entity.is_some() {
+        if let Ok((transform, body)) = query.get(follow.entity.unwrap()) {
+            camera.single_mut().translation = Vec3 {
+                x: transform.translation.x + body.data.radius * 2.0,
+                y: transform.translation.y,
+                z: transform.translation.z,
+            }
+        }
     }
 }
