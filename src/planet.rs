@@ -3,15 +3,17 @@ use std::f32::{INFINITY, NAN};
 use bevy::{
     color::{palettes::tailwind, Color},
     prelude::*,
-    render::mesh::Mesh,
+    render::{mesh::Mesh, texture},
 };
 
-use crate::SimulationSpeedMultiplier;
+use crate::{SimulationSpeedMultiplier, Sun};
 
 #[derive(Debug, Component, Clone, Default, Copy)]
 pub struct Object {}
 #[derive(Debug, Component, Clone, Default, Copy)]
 pub struct Planet {}
+#[derive(Debug, Component, Clone, Default, Copy)]
+pub struct Moon {}
 #[derive(Debug, Component, Clone, Default, Copy)]
 pub struct Star {}
 
@@ -21,25 +23,31 @@ pub struct BodyData {
     pub velocity: Vec3,
     pub acceleration: Vec3,
     pub rotation: Vec3,
+    // pub rotation_velocity: Vec3,
+    pub axial_tilt: Vec3,
     pub mass: f32,
     pub radius: f32,
     pub temperature: f32,
     pub color: Color,
     pub name: Option<&'static str>,
+    pub texture: Option<&'static str>,
 }
 
 impl Default for BodyData {
     fn default() -> Self {
         Self {
-            position: Vec3::new(0.0, 0.0, 0.0),
-            velocity: Vec3::new(1.0, 1.0, -10.0),
-            acceleration: Vec3::new(0.0, 0.0, 0.0),
-            rotation: Vec3::new(0.0, 0.0, 0.0),
+            position: Vec3::ZERO,
+            velocity: Vec3::ZERO,
+            acceleration: Vec3::ZERO,
+            rotation: Vec3::ZERO,
+            // rotation_velocity: Vec3::ZERO,
+            axial_tilt: Vec3::ZERO,
             mass: 0.0,
             radius: 0.0,
             temperature: 0.0,
             color: Color::WHITE,
             name: None,
+            texture: None,
         }
     }
 }
@@ -61,6 +69,10 @@ impl BodyBundle {
         position: Vec3,
         mass: f32,
         velocity: Vec3,
+        rotation: Vec3,
+        // rotation_velocity: Vec3,
+        axial_tilt: Vec3,
+        texture: &'static str,
     ) -> Body {
         Body {
             data: BodyData {
@@ -70,6 +82,10 @@ impl BodyBundle {
                 color,
                 name: Some(name),
                 velocity: velocity / SCALE,
+                rotation,
+                // rotation_velocity,
+                axial_tilt: axial_tilt,
+                texture: Some(texture),
                 ..default()
             },
         }
@@ -98,8 +114,9 @@ pub fn planets_create_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
-    let sun = BodyBundle::new(
+    let sun_body = BodyBundle::new(
         "Sun",
         Color::from(tailwind::YELLOW_500),
         696_300.0,
@@ -107,6 +124,9 @@ pub fn planets_create_system(
         1.9891e+30,
         // 100000000000.0,
         Vec3::new(0.01, 0.01, 0.01),
+        Vec3::new(0.0, 0.017, 0.0),
+        Vec3::new(0.0, 17.0, 0.0),
+        "sun.jpg",
     );
 
     let planets = vec![
@@ -120,6 +140,9 @@ pub fn planets_create_system(
             3.3011e23,
             // 1000.0,
             Vec3::new(0.001, 0.001, 47.36),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 7.0, 0.0),
+            "mercury.jpg",
         ),
         BodyBundle::new(
             "Venus",
@@ -131,6 +154,9 @@ pub fn planets_create_system(
             4.8675e24,
             // 10000.0,
             Vec3::new(0.001, 0.0001, 35.02),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 7.0, 0.0),
+            "venus.jpg",
         ),
         BodyBundle::new(
             "Earth",
@@ -142,6 +168,9 @@ pub fn planets_create_system(
             5.97237e24,
             // 10000.0,
             Vec3::new(0.01, 0.01, 29.7827),
+            Vec3::new(0.0, 0.008, 0.0),
+            Vec3::new(0.0, 27.0, 0.0),
+            "earth.jpg",
         ),
         BodyBundle::new(
             "Mars",
@@ -152,6 +181,9 @@ pub fn planets_create_system(
             6.4171e23,
             // 0.04,
             Vec3::new(0.01, 0.01, 24.07),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 7.0, 0.0),
+            "mars.jpg",
         ),
         BodyBundle::new(
             "Jupiter",
@@ -162,6 +194,9 @@ pub fn planets_create_system(
             1.8982E27,
             // 0.1,
             Vec3::new(0.01, 0.01, 13.07),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 7.0, 0.0),
+            "jupiter.jpg",
         ),
         BodyBundle::new(
             "Saturn",
@@ -172,6 +207,9 @@ pub fn planets_create_system(
             // 5.6834e26,
             0.08,
             Vec3::new(0.1, 0.1, 30.01),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 7.0, 0.0),
+            "saturn.jpg",
         ),
         BodyBundle::new(
             "Uranus",
@@ -182,6 +220,9 @@ pub fn planets_create_system(
             // 8.6810e25,
             0.06,
             Vec3::new(0.1, 0.1, 50.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 7.0, 0.0),
+            "uranus.jpg",
         ),
         BodyBundle::new(
             "Neptune",
@@ -192,6 +233,9 @@ pub fn planets_create_system(
             // 1.02413e26,
             0.07,
             Vec3::new(0.1, 0.1, 80.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 7.0, 0.0),
+            "neptune.jpg",
         ),
     ];
 
@@ -204,10 +248,16 @@ pub fn planets_create_system(
                         radius: planet.data.radius,
                     }),
                     material: materials.add(StandardMaterial {
-                        base_color: planet.data.color,
+                        base_color: Color::WHITE,
+                        base_color_texture: Some(asset_server.load(planet.data.texture.unwrap())),
                         ..default()
                     }),
-                    transform: Transform::from_translation(planet.data.position),
+                    transform: Transform::from_translation(planet.data.position).with_rotation(
+                        Quat::from_axis_angle(
+                            planet.data.axial_tilt.normalize_or_zero(),
+                            planet.data.axial_tilt.max_element().to_radians(),
+                        ),
+                    ),
                     ..default()
                 },
             },
@@ -216,21 +266,25 @@ pub fn planets_create_system(
         ));
     }
 
-    commands
+    let sun = commands
         .spawn((
             ObjectBundle {
-                body: sun,
+                body: sun_body,
                 pbr: PbrBundle {
                     mesh: meshes.add(Sphere {
-                        radius: sun.data.radius,
+                        radius: sun_body.data.radius,
                     }),
                     material: materials.add(StandardMaterial {
-                        base_color: Color::from(tailwind::YELLOW_500),
-                        emissive: Color::from(tailwind::YELLOW_500).into(),
-                        unlit: true,
+                        // base_color_texture: Some(custom_texture_handle.clone()),
+                        // emissive: Color::from(tailwind::YELLOW_500).into(),
+                        // base_color: Color::WHITE,
+                        emissive_texture: Some(asset_server.load(sun_body.data.texture.unwrap())),
+                        emissive: LinearRgba::WHITE,
+
+                        // unlit: true,
                         ..default()
                     }),
-                    transform: Transform::from_translation(sun.data.position),
+                    transform: Transform::from_translation(sun_body.data.position),
                     ..default()
                 },
             },
@@ -243,13 +297,16 @@ pub fn planets_create_system(
                     shadows_enabled: true,
                     color: Color::WHITE,
                     range: f32::MAX,
-                    radius: sun.data.radius,
-                    intensity: 1_000_000_000_000_000.0,
+                    radius: sun_body.data.radius,
+                    intensity: 1_000_000_000_000_000.0 / SCALE,
                     ..default()
                 },
                 ..default()
             });
-        });
+        })
+        .id();
+
+    commands.insert_resource(Sun(sun));
 }
 
 pub fn planets_update_system(
@@ -263,6 +320,12 @@ pub fn planets_update_system(
         .collect();
 
     for (mut transform_outer, mut body_outer) in body_query.iter_mut() {
+        // transform_outer.rotation = transform_outer.rotation.mul_vec3(body_outer.data.rotation);
+        transform_outer.rotate_x(body_outer.data.rotation.x);
+        transform_outer.rotate_y(body_outer.data.rotation.y);
+        transform_outer.rotate_z(body_outer.data.rotation.z);
+
+        // transform_outer.rotation = body_outer.data.rotation;
         for (transform_inner, body_inner) in &planet_data {
             if body_inner.data.name == body_outer.data.name {
                 continue;
@@ -298,11 +361,6 @@ pub fn planets_update_system(
             assert_ne!(acceleration, Vec3::NAN);
             assert_ne!(body_outer.data.velocity, Vec3::NAN);
             assert_ne!(transform_outer.translation, Vec3::NAN);
-
-            println!(
-                "{:?}, velocity: {:?}",
-                body_outer.data.name, body_outer.data.velocity
-            );
         }
     }
 }

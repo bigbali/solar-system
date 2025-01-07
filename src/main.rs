@@ -2,6 +2,11 @@ use std::f32::consts::PI;
 
 use bevy::{core_pipeline::bloom::BloomSettings, prelude::*};
 use bevy_flycam::{FlyCam, MovementSettings, NoCameraPlayerPlugin};
+use iyes_perf_ui::{
+    entries::PerfUiBundle,
+    prelude::{PerfUiEntryFPS, PerfUiPosition, PerfUiRoot},
+    PerfUiPlugin,
+};
 use planet::{planets_create_system, planets_update_system, Body};
 
 use bevy_mod_imgui::prelude::*;
@@ -16,11 +21,16 @@ pub struct Follow {
     active: bool,
 }
 
+#[derive(Resource)]
+pub struct Sun(Entity);
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(NoCameraPlayerPlugin)
         .add_plugins(bevy_mod_imgui::ImguiPlugin::default())
+        .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin)
+        .add_plugins(PerfUiPlugin)
         .add_systems(Startup, (setup, planets_create_system, spawn_player))
         .add_systems(PostStartup, log_system)
         .add_systems(
@@ -44,28 +54,38 @@ fn main() {
         .run();
 }
 
+fn setup(mut commands: Commands) {
+    commands.spawn((
+        PerfUiRoot {
+            position: PerfUiPosition::TopRight,
+            ..default()
+        },
+        PerfUiEntryFPS::default(),
+    ));
+}
+
 fn ui(
     mut context: NonSendMut<ImguiContext>,
+    windows: Query<&Window>,
     query: Query<(&Transform, &Body, Entity), Without<Camera>>,
     mut camera: Query<&mut Transform, With<Camera>>,
     mut camera_speed: ResMut<MovementSettings>,
     mut follow: ResMut<Follow>,
     mut speed: ResMut<SimulationSpeedMultiplier>,
+    sun: Res<Sun>,
 ) {
     let ui = context.ui();
     let window = ui.window("Solar System");
 
-    let sun = query
-        .iter()
-        .find(|(_, body, _)| body.data.name.unwrap_or("unnamed") == "Sun");
+    let sun = query.get(sun.0);
 
-    let sun_transform = match sun {
-        Some((transform, _, _)) => transform,
-        None => return,
-    };
+    let bevy_window = windows.single();
 
     window
-        .size([500.0, 800.0], imgui::Condition::FirstUseEver)
+        .size(
+            [500.0, bevy_window.resolution.physical_height() as f32],
+            imgui::Condition::Always,
+        )
         .position([0.0, 0.0], imgui::Condition::FirstUseEver)
         .build(|| {
             ui.text("Objects");
@@ -91,12 +111,13 @@ fn ui(
                 ui.same_line();
 
                 ui.group(|| {
-                    if body.data.name.unwrap_or("unnamed") != "Sun" {
+                    if let Ok((sun_transform, _, _)) = sun {
                         ui.text(format!(
                             "d from sun {}",
                             transform.translation.distance(sun_transform.translation)
                         ));
                     }
+
                     ui.text(format!("velocity x {}", body.data.velocity.x));
                     ui.text(format!("velocity y {}", body.data.velocity.y));
                     ui.text(format!("velocity z {}", body.data.velocity.z));
@@ -104,6 +125,7 @@ fn ui(
                         "mass: {}, radius:{}",
                         body.data.mass, body.data.radius
                     ));
+                    ui.text(format!("rot: {}", transform.rotation));
                 });
             }
 
@@ -131,8 +153,6 @@ fn ui(
             ));
         });
 }
-
-fn setup(mut commands: Commands) {}
 
 #[derive(Debug, Component)]
 struct Player;
@@ -200,6 +220,16 @@ fn planet_gizmos(mut gizmos: Gizmos, query: Query<(&Body, &Transform)>) {
             transform.translation + body.data.velocity * 100000.0,
             Color::WHITE,
         );
+
+        let forward = transform.rotation * Vec3::Z;
+
+        // Define the start and end points of the line
+        let start = transform.translation;
+        let end = transform.translation + forward * 10.0;
+
+        // let tilted_direction = tilt_quaternion * Vec3::Z;
+
+        gizmos.line(start, end, Color::linear_rgb(200.0, 100.0, 20.0));
     }
 }
 
