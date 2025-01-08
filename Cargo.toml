@@ -5,11 +5,13 @@ edition = "2021"
 
 [dependencies]
 bevy = { version = "0.15.0",  features=["jpeg"]}
-# bevy_dylib = { version = "0.14.0-rc.3" }
+# bevy_dylib = { version = "0.14.0-rc.3"
 bevy_flycam = "0.15.0"
 bevy_mod_imgui = "0.6.0"
 imgui = "0.12.0"
-iyes_perf_ui = "0.3.0"
+
+[dependencies.iyes_perf_ui]
+git = "https://github.com/IyesGames/iyes_perf_ui"
 
 
 [profile.dev]

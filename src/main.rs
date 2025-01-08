@@ -1,17 +1,21 @@
-use std::f32::consts::PI;
+use std::{env, f32::consts::PI};
 
-use bevy::{core_pipeline::bloom::BloomSettings, prelude::*};
+use bevy::{
+    core_pipeline::bloom::{Bloom, BloomSettings},
+    prelude::*,
+};
 use bevy_flycam::{FlyCam, MovementSettings, NoCameraPlayerPlugin};
+use body::{bodies, planets_update_system /* planets_update_system, Body */, Body};
 use iyes_perf_ui::{
-    entries::PerfUiBundle,
+    // entries::PerfUiBundle,
     prelude::{PerfUiEntryFPS, PerfUiPosition, PerfUiRoot},
     PerfUiPlugin,
 };
-use planet::{planets_create_system, planets_update_system, Body};
 
 use bevy_mod_imgui::prelude::*;
 
-mod planet;
+mod body;
+mod planets;
 #[derive(Resource)]
 pub struct SimulationSpeedMultiplier(f32);
 
@@ -21,17 +25,23 @@ pub struct Follow {
     active: bool,
 }
 
-#[derive(Resource)]
-pub struct Sun(Entity);
+// #[derive(Resource)]
+// pub struct Sun(Entity);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(NoCameraPlayerPlugin)
         .add_plugins(bevy_mod_imgui::ImguiPlugin::default())
+        // .add_plugins(bevy_mod_imgui::ImguiPlugin {
+        //     ini_filename: Some("hello-world.ini".into()),
+        //     font_oversample_h: 2,
+        //     font_oversample_v: 2,
+        //     ..default()
+        // })
         .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin)
         .add_plugins(PerfUiPlugin)
-        .add_systems(Startup, (setup, planets_create_system, spawn_player))
+        .add_systems(Startup, (setup, bodies, spawn_player))
         .add_systems(PostStartup, log_system)
         .add_systems(
             Update,
@@ -72,12 +82,12 @@ fn ui(
     mut camera_speed: ResMut<MovementSettings>,
     mut follow: ResMut<Follow>,
     mut speed: ResMut<SimulationSpeedMultiplier>,
-    sun: Res<Sun>,
+    // sun: Res<Sun>,
 ) {
     let ui = context.ui();
     let window = ui.window("Solar System");
 
-    let sun = query.get(sun.0);
+    // let sun = query.get(sun.0);
 
     let bevy_window = windows.single();
 
@@ -94,7 +104,7 @@ fn ui(
             let mut camera_transform = camera.single_mut();
 
             for (transform, body, entity) in query.iter() {
-                if ui.button_with_size(body.data.name.unwrap_or("unnamed"), [250.0, 60.0]) {
+                if ui.button_with_size(body.metadata.name.unwrap_or("unnamed"), [250.0, 60.0]) {
                     camera_transform.translation = Vec3 {
                         x: transform.translation.x,
                         y: transform.translation.y,
@@ -111,12 +121,12 @@ fn ui(
                 ui.same_line();
 
                 ui.group(|| {
-                    if let Ok((sun_transform, _, _)) = sun {
-                        ui.text(format!(
-                            "d from sun {}",
-                            transform.translation.distance(sun_transform.translation)
-                        ));
-                    }
+                    // if let Ok((sun_transform, _, _)) = sun {
+                    //     ui.text(format!(
+                    //         "d from sun {}",
+                    //         transform.translation.distance(sun_transform.translation)
+                    //     ));
+                    // }
 
                     ui.text(format!("velocity x {}", body.data.velocity.x));
                     ui.text(format!("velocity y {}", body.data.velocity.y));
@@ -161,10 +171,8 @@ fn spawn_player(mut commands: Commands) {
     commands
         .spawn((
             Player,
-            SpatialBundle {
-                transform: Transform::from_xyz(0.0, 1.0, 0.0),
-                ..default()
-            },
+            Transform::from_xyz(0.0, 1.0, 0.0),
+            Visibility::default(),
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -183,7 +191,18 @@ fn spawn_player(mut commands: Commands) {
                         .looking_at(Vec3::ZERO, Vec3::Y),
                     ..default()
                 },
-                BloomSettings::NATURAL,
+                Bloom::NATURAL,
+                // Camera3d::default(),
+                // Camera {
+                //     hdr: true,
+                //     ..default()
+                // },
+                // PerspectiveProjection {
+                //     fov: 70.0_f32.to_radians(),
+                //     ..default()
+                // },
+                // Transform::from_xyz(0.0, 0.0, 696_300.0 / 999_999.0)
+                //     .looking_at(Vec3::ZERO, Vec3::Y),
                 FlyCam,
             ));
         });
@@ -200,25 +219,26 @@ fn log_system(bodies: Query<&Body>) {
 
 fn planet_gizmos(mut gizmos: Gizmos, query: Query<(&Body, &Transform)>) {
     gizmos.grid(
-        Vec3::ZERO,
-        Quat::from_rotation_x(PI / 2.),
+        Isometry3d::from_rotation(Quat::from_rotation_x(PI / 2.0)),
         UVec2::splat(50),
         Vec2::new(1_000.0, 1_000.0),
-        LinearRgba::BLUE,
+        LinearRgba::new(0.0, 0.0, 1.0, 1.0),
     );
 
     for (body, transform) in query.iter() {
         gizmos.sphere(
-            transform.translation,
-            Quat::IDENTITY,
+            Isometry3d {
+                rotation: Quat::IDENTITY,
+                translation: transform.translation.into(),
+            },
             body.data.radius * 100.0,
-            body.data.color,
+            body.metadata.color,
         );
 
         gizmos.arrow(
             transform.translation,
             transform.translation + body.data.velocity * 100000.0,
-            Color::WHITE,
+            body.metadata.color,
         );
 
         let forward = transform.rotation * Vec3::Z;
@@ -229,7 +249,7 @@ fn planet_gizmos(mut gizmos: Gizmos, query: Query<(&Body, &Transform)>) {
 
         // let tilted_direction = tilt_quaternion * Vec3::Z;
 
-        gizmos.line(start, end, Color::linear_rgb(200.0, 100.0, 20.0));
+        // gizmos.line(start, end, Color::linear_rgb(200.0, 100.0, 20.0));
     }
 }
 
