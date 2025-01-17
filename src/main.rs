@@ -1,7 +1,8 @@
 use std::{env, f32::consts::PI};
 
-use bevy::{core_pipeline::bloom::Bloom, prelude::*};
+use bevy::{color::palettes, core_pipeline::bloom::Bloom, prelude::*};
 use bevy_flycam::{FlyCam, MovementSettings, NoCameraPlayerPlugin};
+use bevy_mod_billboard::{plugin::BillboardPlugin, BillboardText};
 use body::{bodies, planets_update_system, Body};
 use iyes_perf_ui::{
     prelude::{PerfUiEntryFPS, PerfUiPosition, PerfUiRoot},
@@ -12,6 +13,7 @@ use ui::data_window;
 
 mod body;
 mod planets;
+mod trajectory;
 mod ui;
 
 #[derive(Resource)]
@@ -23,23 +25,35 @@ pub struct Follow {
     active: bool,
 }
 
+#[derive(Resource)]
+pub struct CalculateTrajectory {
+    calculated: bool,
+    steps: i32,
+}
+
+impl Default for CalculateTrajectory {
+    fn default() -> Self {
+        Self {
+            calculated: false,
+            steps: 100,
+        }
+    }
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(NoCameraPlayerPlugin)
         .add_plugins(bevy_mod_imgui::ImguiPlugin::default())
+        .add_plugins(BillboardPlugin)
         .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin)
         .add_plugins(PerfUiPlugin)
         .add_systems(Startup, (setup, bodies, spawn_player))
         .add_systems(PostStartup, log_system)
+        .add_systems(Update, (planet_gizmos, data_window, follow_object))
         .add_systems(
-            Update,
-            (
-                planets_update_system,
-                planet_gizmos,
-                data_window,
-                follow_object,
-            ),
+            FixedUpdate,
+            (planets_update_system, trajectory::calculate_trajectory),
         )
         .insert_resource(MovementSettings {
             sensitivity: 0.00012, // default: 0.00012
@@ -55,6 +69,8 @@ fn main() {
             entity: None,
             active: false,
         })
+        .insert_resource(CalculateTrajectory::default())
+        .insert_resource(trajectory::Trajectories::default())
         .run();
 }
 
@@ -88,6 +104,7 @@ fn spawn_player(mut commands: Commands) {
                 },
                 PerspectiveProjection {
                     fov: 70.0_f32.to_radians(),
+                    near: 0.001,
                     ..default()
                 },
                 Transform::from_xyz(0.0, 0.0, 696_300.0 / 999_999.0)
@@ -106,7 +123,11 @@ fn log_system(bodies: Query<&Body>) {
     }
 }
 
-fn planet_gizmos(mut gizmos: Gizmos, query: Query<(&Body, &Transform)>) {
+fn planet_gizmos(
+    mut gizmos: Gizmos,
+    query: Query<(&Body, &Transform)>,
+    mut trajectory: ResMut<trajectory::Trajectories>,
+) {
     gizmos.grid(
         Isometry3d::from_rotation(Quat::from_rotation_x(PI / 2.0)),
         UVec2::splat(50),
@@ -124,13 +145,48 @@ fn planet_gizmos(mut gizmos: Gizmos, query: Query<(&Body, &Transform)>) {
             body.metadata.color,
         );
 
-        // force direction and intensity
+        // force direction and velocity
         gizmos.arrow(
             transform.translation,
             transform.translation + body.data.velocity * 100000.0,
             body.metadata.color,
         );
     }
+
+    for t in trajectory.0.iter() {
+        gizmos.line(t.start, t.end, t.color);
+
+        // gizmos.sphere(
+        //     Isometry3d {
+        //         rotation: Quat::IDENTITY,
+        //         translation: t.end.into(),
+        //     },
+        //     0.1,
+        //     t.color,
+        // );
+    }
+
+    // let range = 20;
+    // let frange = range as f32;
+    // for n in (0..range).step_by(2) {
+    //     let norm = n as f32 / frange;
+
+    //     gizmos.line(
+    //         Vec3::splat(n as f32),
+    //         Vec3::splat((n + 1) as f32),
+    //         Color::linear_rgb(norm, 1.0 - norm, 1.0 - norm),
+    //         // Color::linear_rgba(1.0, 0.0, 0.0, 1.0),
+    //     );
+
+    //     gizmos.sphere(
+    //         Isometry3d {
+    //             rotation: Quat::IDENTITY,
+    //             translation: Vec3::splat((n + 1) as f32).into(),
+    //         },
+    //         0.1,
+    //         Color::linear_rgb(norm, 1.0 - norm, 1.0 - norm),
+    //     );
+    // }
 }
 
 fn follow_object(

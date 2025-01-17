@@ -7,6 +7,7 @@ edition = "2021"
 bevy = { version = "0.15.0",  features=["jpeg"]}
 # bevy_dylib = { version = "0.14.0-rc.3"
 bevy_flycam = "0.15.0"
+bevy_mod_billboard = { git = "https://github.com/kulkalkul/bevy_mod_billboard", rev = "fe90b984c5d73bf6863daf90bc95831f27e0c072"}
 bevy_mod_imgui = "0.6.0"
 imgui = "0.12.0"
 

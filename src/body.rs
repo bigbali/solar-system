@@ -84,12 +84,12 @@ pub struct Body {
     pub metadata: BodyMetadata,
 }
 
-const SCALE: f32 = 1_000_000.0; // 1 million meters to 1 unit
-const MASS_SCALE: f32 = 1_000_000_000_000.0; // 1 trillion kg to 1 unit
-const GRAVITATIONAL_CONSTANT: f32 = 6.67430e-11;
-const G: f32 = GRAVITATIONAL_CONSTANT / MASS_SCALE;
+pub const SCALE: f32 = 1_000_000.0; // 1 million meters to 1 unit
+pub const MASS_SCALE: f32 = 1_000_000_000_000.0; // 1 trillion kg to 1 unit
+pub const GRAVITATIONAL_CONSTANT: f32 = 6.67430e-11;
+pub const G: f32 = GRAVITATIONAL_CONSTANT / MASS_SCALE;
 
-const SOFTENING_FACTOR: f32 = 0.001;
+pub const SOFTENING_FACTOR: f32 = 0.001;
 
 pub fn bodies(
     mut commands: Commands,
@@ -107,16 +107,29 @@ pub fn bodies(
                 MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: planet.metadata.color,
                     base_color_texture: planet.metadata.texture,
+
                     ..default()
                 })),
                 Transform::from_translation(planet.data.position),
             ))
             .with_children(|parent| {
-                parent.spawn((
-                    Text2d::new(planet.metadata.name.unwrap()),
-                    TextColor::from(RED),
-                    Transform::from_translation(Vec3::new(0.0, planet.data.radius + 50.0, 0.0)),
-                ));
+                if planet.metadata.name.is_none() {
+                    return;
+                }
+
+                parent
+                    .spawn((
+                        bevy_mod_billboard::BillboardText::default(),
+                        bevy_mod_billboard::BillboardDepth(false),
+                        TextLayout::new_with_justify(JustifyText::Left),
+                        Transform::from_translation(Vec3::new(0.0, planet.data.radius + 2.0, 0.0))
+                            .with_scale(Vec3::splat(0.01)),
+                    ))
+                    .with_child((
+                        TextSpan::new(planet.metadata.name.unwrap()),
+                        TextFont::default().with_font_size(60.0),
+                        TextColor::from(Color::WHITE),
+                    ));
             });
     }
 
@@ -178,6 +191,8 @@ pub fn planets_update_system(
         .iter()
         .map(|(t, p)| (t.clone(), p.clone()))
         .collect();
+
+    // todo: should be separated into function
 
     for (mut transform_outer, mut body_outer) in body_query.iter_mut() {
         transform_outer.rotate_x(body_outer.data.rotation.x);
