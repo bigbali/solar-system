@@ -20,13 +20,24 @@ impl Body {
 
 #[derive(Debug, Clone, Component, Copy)]
 pub struct BodyData {
+    /// Absolute position in world space, in Astronomical Units
     pub position: Vec3,
+
+    /// Astronomical Units per day
     pub velocity: Vec3,
+
+    /// Astronomical Units per day
     pub acceleration: Vec3,
-    pub rotation: Vec3,
+    pub rotation: Quat,
     pub axial_tilt: Vec3,
+
+    /// In Solar Mass
     pub mass: f32,
+
+    /// Mean radius in Astronomical Units
     pub radius: f32,
+
+    /// Surface temperature in Kelvin
     pub temperature: f32,
 }
 
@@ -36,7 +47,7 @@ impl Default for BodyData {
             position: Vec3::ZERO,
             velocity: Vec3::ZERO,
             acceleration: Vec3::ZERO,
-            rotation: Vec3::ZERO,
+            rotation: Quat::IDENTITY,
             axial_tilt: Vec3::ZERO,
             mass: 0.0,
             radius: 0.0,

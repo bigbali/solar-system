@@ -85,19 +85,10 @@ pub fn left_window_system(
                     "Gravitational Constant",
                     &mut parameters.gravitational_constant,
                 )
-                .step(1.0)
+                .step(1e-4)
                 .build();
-                ui.input_float("Distance Scaling (AU)", &mut parameters.unit_scale)
-                    .step(1.0)
-                    .build();
-                ui.input_float("Mass Scaling (Solar mass)", &mut parameters.mass_scale)
-                    .step(1.0)
-                    .build();
-                ui.input_float("Velocity Scaling (km/s)", &mut parameters.velocity_scale)
-                    .step(1.0)
-                    .build();
-                ui.input_float("Time Scaling (s)", &mut parameters.time_step)
-                    .step(1.0)
+                ui.input_float("Time Scaling (days/second)", &mut parameters.time_step)
+                    .step(1.0 / 60.0) // step by 1 day/second
                     .build();
                 ui.input_float(
                     "Simulation Speed Multiplier",

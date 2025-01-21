@@ -29,12 +29,10 @@ pub fn initialize_bodies_system(
                         0.00000517762640983341,
                         0.00000222910217891203,
                     ),
-                    acceleration: Vec3::ZERO,
-                    rotation: Vec3::new(0.0, 0.0, 0.0),
-                    axial_tilt: Vec3::new(0.0, 0.0, 0.0),
                     mass: 1.0,
                     radius: sun_radius,
                     temperature: 5778.0,
+                    ..default()
                 },
                 metadata: BodyMetadata {
                     color: Color::linear_rgb(0.5, 0.5, 0.0),

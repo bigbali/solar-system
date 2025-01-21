@@ -30,9 +30,10 @@ impl Plugin for SimulationPlugin {
         .insert_resource(settings::SelectedBody::default())
         .insert_resource(trajectory::Trajectories::default())
         .insert_resource(trajectory::CalculateTrajectory::default())
+        .insert_resource(Time::<Fixed>::from_hz(60.0))
         .insert_resource(bevy_flycam::MovementSettings {
             sensitivity: 0.00012, // default: 0.00012
-            speed: 50.0,          // default: 12.0
+            speed: 1.0,           // default: 12.0
         });
     }
 }

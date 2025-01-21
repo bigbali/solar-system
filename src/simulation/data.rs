@@ -15,12 +15,10 @@ pub fn planets(asset_server: &Res<AssetServer>) -> Vec<Body> {
                 0.02489452055768343341,
                 0.01294630040970409203,
             ),
-            acceleration: Vec3::new(0.0, 0.0, 0.0),
-            rotation: Vec3::new(0.0, 0.0, 0.0),
-            axial_tilt: Vec3::new(0.0, 0.0, 0.0),
             mass: 1.65956463e-7,
             radius: 1.6308e-5,
             temperature: 5778.0,
+            ..default()
         },
         metadata: BodyMetadata {
             color: Color::from(tailwind::GRAY_500),
@@ -41,12 +39,10 @@ pub fn planets(asset_server: &Res<AssetServer>) -> Vec<Body> {
                 0.01561768426786768341,
                 0.00633110570297786403,
             ),
-            acceleration: Vec3::new(0.0, 0.0, 0.0),
-            rotation: Vec3::new(0.0, 0.0, 0.0),
-            axial_tilt: Vec3::new(0.0, 0.0, 0.0),
             mass: 2.44699613e-6,
             radius: 4.04537843e-5,
             temperature: 5778.0,
+            ..default()
         },
         metadata: BodyMetadata {
             color: Color::from(tailwind::AMBER_500),
@@ -57,14 +53,20 @@ pub fn planets(asset_server: &Res<AssetServer>) -> Vec<Body> {
 
     let earth = Body {
         data: BodyData {
-            position: Vec3::new(152_097_597.0, 0.0, 0.0),
-            velocity: Vec3::new(0.0, 0.0, 29.7827),
-            acceleration: Vec3::new(0.0, 0.0, 0.0),
-            rotation: Vec3::new(0.0, 0.0, 0.0),
-            axial_tilt: Vec3::new(0.0, 0.0, 0.0),
+            position: Vec3::new(
+                0.12051741410138465477,
+                -0.92583847476914859295,
+                -0.40154022645315222236,
+            ),
+            velocity: Vec3::new(
+                0.01681126830978379448,
+                0.00174830923073434441,
+                0.00075820289738312913,
+            ),
             mass: 3.0024584e-6,
             radius: 4.26349651e-5,
             temperature: 5778.0,
+            ..default()
         },
         metadata: BodyMetadata {
             color: Color::from(tailwind::BLUE_500),
@@ -75,14 +77,20 @@ pub fn planets(asset_server: &Res<AssetServer>) -> Vec<Body> {
 
     let mars = Body {
         data: BodyData {
-            position: Vec3::new(249_261_000.0, 0.0, 0.0),
-            velocity: Vec3::new(0.0, 0.0, 24.07),
-            acceleration: Vec3::new(0.0, 0.0, 0.0),
-            rotation: Vec3::new(0.0, 0.0, 0.0),
-            axial_tilt: Vec3::new(0.0, 0.0, 0.0),
-            mass: 6.4171e23,
-            radius: 3_389.5,
+            position: Vec3::new(
+                -0.11018607714879824523,
+                -1.32759945030298299295,
+                -0.60588914048429142236,
+            ),
+            velocity: Vec3::new(
+                0.01448165305704756448,
+                0.00024246307683646861,
+                -0.00028152072792433877,
+            ),
+            mass: 3.213e-7,
+            radius: 2.2657408e-5,
             temperature: 5778.0,
+            ..default()
         },
         metadata: BodyMetadata {
             color: Color::from(tailwind::RED_500),
@@ -93,14 +101,20 @@ pub fn planets(asset_server: &Res<AssetServer>) -> Vec<Body> {
 
     let jupiter = Body {
         data: BodyData {
-            position: Vec3::new(816_081_455.0, 0.0, 0.0),
-            velocity: Vec3::new(0.0, 0.0, 13.07),
-            acceleration: Vec3::new(0.0, 0.0, 0.0),
-            rotation: Vec3::new(0.0, 0.0, 0.0),
-            axial_tilt: Vec3::new(0.0, 0.0, 0.0),
-            mass: 1.8982E27,
-            radius: 142_984.0,
+            position: Vec3::new(
+                -5.37970676855393644523,
+                -0.83048132656339789295,
+                -0.22482887442656542236,
+            ),
+            velocity: Vec3::new(
+                0.00109201259423733748,
+                -0.00651811661280738459,
+                -0.00282078276229867897,
+            ),
+            mass: 0.000954588,
+            radius: 0.000477895,
             temperature: 5778.0,
+            ..default()
         },
         metadata: BodyMetadata {
             color: Color::from(tailwind::YELLOW_500),
@@ -111,14 +125,20 @@ pub fn planets(asset_server: &Res<AssetServer>) -> Vec<Body> {
 
     let saturn = Body {
         data: BodyData {
-            position: Vec3::new(1_514_500_000.0, 0.0, 0.0),
-            velocity: Vec3::new(0.0, 0.0, 30.01),
-            acceleration: Vec3::new(0.0, 0.0, 0.0),
-            rotation: Vec3::new(0.0, 0.0, 0.0),
-            axial_tilt: Vec3::new(0.0, 0.0, 0.0),
-            mass: 5.6834e26,
-            radius: 58_232.0,
-            temperature: 5778.0,
+            position: Vec3::new(
+                7.89439068290953155477,
+                4.59647805517127300705,
+                1.55869584283189997764,
+            ),
+            velocity: Vec3::new(
+                -0.00321755651650091552,
+                0.00433581034174662541,
+                0.00192864631686015503,
+            ),
+            mass: 0.0002857,
+            radius: 0.00038925688,
+            temperature: 97.0,
+            ..default()
         },
         metadata: BodyMetadata {
             color: Color::from(tailwind::YELLOW_300),
@@ -129,14 +149,20 @@ pub fn planets(asset_server: &Res<AssetServer>) -> Vec<Body> {
 
     let uranus = Body {
         data: BodyData {
-            position: Vec3::new(3_006_390_000.0, 0.0, 0.0),
-            velocity: Vec3::new(0.0, 0.0, 50.0),
-            acceleration: Vec3::new(0.0, 0.0, 0.0),
-            rotation: Vec3::new(0.0, 0.0, 0.0),
-            axial_tilt: Vec3::new(0.0, 0.0, 0.0),
-            mass: 8.6810e25,
-            radius: 25_362.0,
-            temperature: 5778.0,
+            position: Vec3::new(
+                -18.26540225387235944523,
+                -1.16195541867586999295,
+                -0.25010605772133802236,
+            ),
+            velocity: Vec3::new(
+                0.00022119039101561468,
+                -0.00376247500810884459,
+                -0.00165101502742994997,
+            ),
+            mass: 0.00004365,
+            radius: 4.3061763e-9,
+            temperature: 53.0,
+            ..default()
         },
         metadata: BodyMetadata {
             color: Color::from(tailwind::TEAL_500),
@@ -147,14 +173,20 @@ pub fn planets(asset_server: &Res<AssetServer>) -> Vec<Body> {
 
     let neptune = Body {
         data: BodyData {
-            position: Vec3::new(4_540_000_000.0, 0.0, 0.0),
-            velocity: Vec3::new(0.0, 0.0, 80.0),
-            acceleration: Vec3::new(0.0, 0.0, 0.0),
-            rotation: Vec3::new(0.0, 0.0, 0.0),
-            axial_tilt: Vec3::new(0.0, 0.0, 0.0),
-            mass: 1.02413e26,
-            radius: 24_622.0,
-            temperature: 5778.0,
+            position: Vec3::new(
+                -16.05503578023336944523,
+                -23.94219155985470899295,
+                -9.40015796880239402236,
+            ),
+            velocity: Vec3::new(
+                0.00264276984798005548,
+                -0.00149831255054097759,
+                -0.00067904196080291327,
+            ),
+            mass: 0.00005149,
+            radius: 4.1805328e-9,
+            temperature: 72.0,
+            ..default()
         },
         metadata: BodyMetadata {
             color: Color::from(tailwind::BLUE_700),
@@ -164,6 +196,6 @@ pub fn planets(asset_server: &Res<AssetServer>) -> Vec<Body> {
     };
 
     vec![
-        mercury, venus, earth, /* mars, jupiter, saturn, uranus, neptune ,*/
+        mercury, venus, earth, mars, jupiter, saturn, uranus, neptune,
     ]
 }
