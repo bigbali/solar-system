@@ -1,3 +1,10 @@
 {
-    "workbench.colorTheme": "Stardust Dark"
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.languageServerMode": "full",
+
+    // Pylance is useless
+    "python.languageServer": "Jedi",
+
+    // ... Jedi is also useless. wtf
 }

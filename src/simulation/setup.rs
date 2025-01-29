@@ -1,9 +1,11 @@
 use bevy::prelude::*;
 
 use crate::{
-    simulation::body::*, simulation::data::planets, simulation::player::Player,
+    simulation::body::*, simulation::data::bodies, simulation::player::Player,
     simulation::settings::SimulationParameters,
 };
+
+use super::data::bodies_with_data_relative_to_sun;
 
 pub fn initialize_bodies_system(
     mut commands: Commands,
@@ -14,32 +16,34 @@ pub fn initialize_bodies_system(
 ) {
     let sun_texture: Handle<Image> = asset_server.load("sun.jpg");
     let sun_radius = 0.00465047;
+    let sun_body = Body {
+        data: BodyData {
+            position: Vec3::new(
+                0.00450250878464055477,
+                0.00076707642709100705,
+                0.00026605791776697764,
+            ),
+            velocity: Vec3::new(
+                -0.00000035174953607552,
+                0.00000517762640983341,
+                0.00000222910217891203,
+            ),
+            mass: 1.0,
+            radius: sun_radius,
+            temperature: 5778.0,
+            ..default()
+        },
+        metadata: BodyMetadata {
+            color: Color::linear_rgb(0.5, 0.5, 0.0),
+            name: Some("Sun"),
+            texture: Some(sun_texture.clone()),
+            body_type: BodyType::Star,
+        },
+    };
 
     let sun = commands
         .spawn((
-            Body {
-                data: BodyData {
-                    position: Vec3::new(
-                        0.00450250878464055477,
-                        0.00076707642709100705,
-                        0.00026605791776697764,
-                    ),
-                    velocity: Vec3::new(
-                        -0.00000035174953607552,
-                        0.00000517762640983341,
-                        0.00000222910217891203,
-                    ),
-                    mass: 1.0,
-                    radius: sun_radius,
-                    temperature: 5778.0,
-                    ..default()
-                },
-                metadata: BodyMetadata {
-                    color: Color::linear_rgb(0.5, 0.5, 0.0),
-                    name: Some("Sun"),
-                    texture: Some(sun_texture.clone()),
-                },
-            },
+            sun_body.clone(),
             Mesh3d(meshes.add(Sphere {
                 radius: sun_radius / parameters.unit_scale,
             })),
@@ -48,6 +52,7 @@ pub fn initialize_bodies_system(
                 emissive: LinearRgba::WHITE,
                 ..default()
             })),
+            Transform::from_translation(sun_body.data.position),
             Star {},
         ))
         .with_children(|p| {
@@ -83,43 +88,64 @@ pub fn initialize_bodies_system(
 
     commands.insert_resource(Sun(sun));
 
-    for planet in planets(&asset_server) {
-        commands
-            .spawn((
-                planet.clone(),
-                Mesh3d(meshes.add(Sphere {
-                    radius: planet.data.radius,
-                })),
-                MeshMaterial3d(materials.add(StandardMaterial {
-                    base_color: planet.metadata.color,
-                    base_color_texture: planet.metadata.texture,
-                    ..default()
-                })),
-                Transform::from_translation(planet.data.position),
-            ))
-            .with_children(|parent| {
-                if planet.metadata.name.is_none() {
-                    return;
-                }
+    for body in bodies(&asset_server, &sun_body) {
+        let mut entity = commands.spawn((
+            body.clone(),
+            Mesh3d(meshes.add(Sphere {
+                radius: body.data.radius,
+            })),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: body.metadata.color,
+                base_color_texture: body.metadata.texture,
+                ..default()
+            })),
+            Transform::from_translation(body.data.position),
+        ));
 
-                parent
-                    .spawn((
-                        bevy_mod_billboard::BillboardText::default(),
-                        bevy_mod_billboard::BillboardDepth(false),
-                        TextLayout::new_with_justify(JustifyText::Left),
-                        Transform::from_translation(Vec3::new(
-                            0.0,
-                            planet.data.radius + sun_radius / parameters.unit_scale,
-                            0.0,
-                        ))
-                        .with_scale(Vec3::splat(0.0001)),
+        entity.with_children(|parent| {
+            if body.metadata.name.is_none() {
+                return;
+            }
+
+            parent
+                .spawn((
+                    bevy_mod_billboard::BillboardText::default(),
+                    bevy_mod_billboard::BillboardDepth(false),
+                    TextLayout::new_with_justify(JustifyText::Left),
+                    Transform::from_translation(Vec3::new(
+                        0.0,
+                        body.data.radius + sun_radius / parameters.unit_scale,
+                        0.0,
                     ))
-                    .with_child((
-                        TextSpan::new(planet.metadata.name.unwrap()),
-                        TextFont::default().with_font_size(60.0),
-                        TextColor::from(Color::WHITE),
-                    ));
-            });
+                    .with_scale(Vec3::splat(0.0001)),
+                ))
+                .with_child((
+                    TextSpan::new(body.metadata.name.unwrap()),
+                    TextFont::default().with_font_size(60.0),
+                    TextColor::from(Color::WHITE),
+                ));
+        });
+
+        match body.metadata.body_type {
+            BodyType::Star => {
+                entity.insert(Star {});
+            }
+            BodyType::Planet => {
+                entity.insert(Planet {});
+            }
+            BodyType::DwarfPlanet => {
+                entity.insert(DwarfPlanet {});
+            }
+            BodyType::Moon => {
+                entity.insert(Moon {});
+            }
+            BodyType::Other => {
+                entity.insert(Other {});
+            }
+            _ => {
+                entity.insert(Unknown {});
+            }
+        }
     }
 }
 
@@ -144,7 +170,7 @@ pub fn spawn_player_system(mut commands: Commands, parameters: Res<SimulationPar
                 },
                 PerspectiveProjection {
                     fov: 70.0_f32.to_radians(),
-                    near: 0.000000001,
+                    near: 0.0,
                     ..default()
                 },
                 Transform::from_xyz(0.0, 0.0, 0.00465047 / parameters.unit_scale)

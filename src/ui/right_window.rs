@@ -68,7 +68,7 @@ pub fn right_window_system(
                         .build(ui)
                         {
                             ui.text(format!("{:#?}", transform));
-                            ui.text(format!("{:#?}", body.data));
+                            ui.text(format!("{:#?}", body));
 
                             if let Ok((sun_transform, _, _)) = sun {
                                 ui.text(format!(

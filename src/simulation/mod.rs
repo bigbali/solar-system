@@ -23,11 +23,13 @@ impl Plugin for SimulationPlugin {
             (
                 physics::gravity_system,
                 trajectory::precalculate_trajectory_system,
+                settings::elapsed_time_update_system,
             ),
         )
         .insert_resource(settings::SimulationParameters::default())
         .insert_resource(settings::FollowBody::default())
         .insert_resource(settings::SelectedBody::default())
+        .insert_resource(settings::ElapsedTime::default())
         .insert_resource(trajectory::Trajectories::default())
         .insert_resource(trajectory::CalculateTrajectory::default())
         .insert_resource(Time::<Fixed>::from_hz(60.0))

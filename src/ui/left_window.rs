@@ -8,7 +8,7 @@ use super::{apply_button_color, clear_button_color};
 pub fn left_window_system(
     mut context: NonSendMut<ImguiContext>,
     windows: Query<&Window>,
-    query: Query<(&Transform, &Body, Entity), Without<Camera>>,
+    query: Query<(&Transform, &Body, Entity), (Without<Camera>, With<Planet>)>,
     mut camera: Query<&mut Transform, With<Camera>>,
     mut camera_speed: ResMut<bevy_flycam::MovementSettings>,
     mut follow: ResMut<crate::simulation::settings::FollowBody>,
@@ -16,6 +16,7 @@ pub fn left_window_system(
     mut trajectories: ResMut<crate::simulation::trajectory::Trajectories>,
     mut selected_body: ResMut<crate::simulation::settings::SelectedBody>,
     mut parameters: ResMut<crate::simulation::settings::SimulationParameters>,
+    mut elapsed_time: ResMut<crate::simulation::settings::ElapsedTime>,
     sun: Res<Sun>,
 ) {
     let bevy_window = windows.single();
@@ -194,5 +195,7 @@ pub fn left_window_system(
                 camera_transform.translation.y,
                 camera_transform.translation.z
             ));
+
+            ui.text(format!("Time Passed: {:.2} days", elapsed_time.0));
         });
 }

@@ -76,6 +76,7 @@ pub struct BodyMetadata {
     pub color: Color,
     pub name: Option<&'static str>,
     pub texture: Option<Handle<Image>>,
+    pub body_type: BodyType,
 }
 
 impl Default for BodyMetadata {
@@ -84,18 +85,38 @@ impl Default for BodyMetadata {
             color: Color::WHITE,
             name: None,
             texture: None,
+            body_type: BodyType::Unknown,
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub enum BodyType {
+    Star,
+    Planet,
+    DwarfPlanet,
+    Moon,
+    Other,
+    Unknown,
+}
+
+#[derive(Debug, Component, Clone, Default, Copy)]
+pub struct Star {}
 
 #[derive(Debug, Component, Clone, Default, Copy)]
 pub struct Planet {}
 
 #[derive(Debug, Component, Clone, Default, Copy)]
+pub struct DwarfPlanet {}
+
+#[derive(Debug, Component, Clone, Default, Copy)]
 pub struct Moon {}
 
 #[derive(Debug, Component, Clone, Default, Copy)]
-pub struct Star {}
+pub struct Other {}
+
+#[derive(Debug, Component, Clone, Default, Copy)]
+pub struct Unknown {}
 
 #[derive(Resource)]
 pub struct Sun(pub Entity);

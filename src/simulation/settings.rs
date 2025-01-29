@@ -44,3 +44,13 @@ pub struct FollowBody {
 pub struct SelectedBody {
     pub entity: Option<Entity>,
 }
+
+#[derive(Resource, Default)]
+pub struct ElapsedTime(pub f32);
+
+pub fn elapsed_time_update_system(
+    mut elapsed_time: ResMut<ElapsedTime>,
+    parameters: Res<SimulationParameters>,
+) {
+    elapsed_time.0 += parameters.time_step;
+}
