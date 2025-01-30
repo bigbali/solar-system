@@ -51,9 +51,14 @@ pub fn left_window_system(
                             && follow.is_active
                             && body.metadata.name.is_some() =>
                     {
-                        format!("{} (following)", body.metadata.name.unwrap())
+                        format!("{} (following)", body.metadata.name.clone().unwrap())
                     }
-                    _ => body.metadata.name.unwrap_or("<unknown body>").to_string(),
+                    _ => body
+                        .metadata
+                        .name
+                        .clone()
+                        .unwrap_or("<unknown body>".to_string())
+                        .to_string(),
                 };
 
                 if ui.button_with_size(button_text, [164.0, 48.0]) {
@@ -139,7 +144,10 @@ pub fn left_window_system(
                         if let Ok((_, body, _)) = selected_body {
                             ui.text(format!(
                                 "Selected: {:?}",
-                                body.metadata.name.unwrap_or("<unknown>")
+                                body.metadata
+                                    .name
+                                    .clone()
+                                    .unwrap_or("<unknown>".to_string())
                             ));
                         }
 

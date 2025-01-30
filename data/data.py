@@ -44,6 +44,22 @@ bodies = (
     ),
 )
 
+color_map = {
+    "Mercury": [0.5, 0.5, 0.5, 1.0],
+    "Venus": [0.9, 0.8, 0.6, 1.0],
+    "Earth": [0.0, 0.5, 1.0, 1.0],
+    "Mars": [0.8, 0.3, 0.2, 1.0],
+    "Jupiter": [0.9, 0.6, 0.4, 1.0],
+    "Saturn": [0.8, 0.7, 0.5, 1.0],
+    "Uranus": [0.6, 0.9, 0.8, 1.0],
+    "Neptune": [0.2, 0.3, 0.9, 1.0],
+    "Pluto": [0.7, 0.5, 0.3, 1.0],
+    "Eris": [0.8, 0.8, 0.8, 1.0],
+    "Haumea": [1.0, 1.0, 1.0, 1.0],
+    "Makemake": [0.6, 0.3, 0.2, 1.0],
+    "Ceres": [0.5, 0.4, 0.3, 1.0],
+}
+
 
 def get_mass(line: str) -> float | None:
     """Get the mass of the body in solar masses."""
@@ -109,7 +125,16 @@ def get_obliquity(line: str) -> float | None:
 def get_rotation(line: str) -> float | None:
     """Get the rotation of the body in rad/s."""
 
-    pass
+    match = re.search(
+        r"rot\.?\s*rat[e]?,?\s*[\(\,]?\s*rad/s\s*[\)]?\s*=\s*(-?[\d\.]+)",
+        line,
+        re.IGNORECASE,
+    )
+
+    if match:
+        value = float(match.group(1))
+
+        return value
 
 
 def get_density(line: str) -> float | None:
@@ -180,6 +205,7 @@ def get_data(text: str):
 
             data["id"] = id
             data["name"] = name
+            data["color"] = color_map[name]
 
             continue
 
@@ -200,8 +226,8 @@ def get_data(text: str):
             data["radius"] = radius
 
         temp = get_temp(line)
-        if temp is not None and "temp" not in data:
-            data["temp"] = temp
+        if temp is not None and "temperature" not in data:
+            data["temperature"] = temp
 
         obliquity = get_obliquity(line)
         if obliquity is not None and "obliquity" not in data:
@@ -210,6 +236,10 @@ def get_data(text: str):
         density = get_density(line)
         if density is not None and "density" not in data:
             data["density"] = density
+
+        rotation = get_rotation(line)
+        if rotation is not None and "rotation" not in data:
+            data["rotation"] = rotation
 
     return data
 
@@ -238,30 +268,48 @@ def get_initial_vectors(text: str):
     raise ValueError("Could not find initial vectors")
 
 
-all_bodies_data = {}
+all_bodies_data = []
 for body_type, body_list in bodies:
     for body in body_list:
         id = body[0]
         moons = body[1]
 
+        # 2440400.5: 2025-01-01 00:00:00 TDB
         # location="500@10" -> use the Sun as the center
         __body__ = Horizons(id=id, epochs=2440400.5, location="500@10")
 
         vector_data = get_initial_vectors(__body__.vectors_async().text)
         body_data = get_data(__body__.ephemerides_async().text)
 
+        __data__ = {}
+
         merged_data = body_data | vector_data
 
-        all_bodies_data[id] = merged_data
+        metadata = {
+            "id": merged_data.pop("id", None),
+            "name": merged_data.pop("name", None),
+            "color": merged_data.pop("color", None)
+        }
 
-        print(f"<{body_type.capitalize()}>", merged_data["id"], merged_data["name"])
-        print(f"{json.dumps(merged_data, indent=4)}")
+        __data__["data"] = merged_data
+        __data__["metadata"] = metadata
+
+        all_bodies_data.append(__data__)
+
+        print(
+            f"<{body_type.capitalize()}>",
+            __data__["metadata"]["id"],
+            __data__["metadata"]["name"],
+        )
+        print(f"{json.dumps(__data__["data"], indent=4)}")
 
         path = os.path.join(os.path.dirname(__file__), "responses")
         if not os.path.exists(path):
             os.mkdir(path)
 
-        with open(os.path.join(path, f"{merged_data["name"]} – {id}.txt"), "w") as f:
+        with open(
+            os.path.join(path, f"{__data__["metadata"]["name"]} – {id}.txt"), "w"
+        ) as f:
             ephemerides = __body__.ephemerides_async()
             elements = __body__.elements_async()
             vectors = __body__.vectors_async()

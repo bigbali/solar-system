@@ -53,7 +53,10 @@ pub fn right_window_system(
 
                         if CollapsingHeader::new(format!(
                             "{}: {} {}",
-                            body.metadata.name.unwrap_or("<unknown body>"),
+                            body.metadata
+                                .name
+                                .clone()
+                                .unwrap_or("<unknown body>".to_string()),
                             entity,
                             match selected_body.entity {
                                 Some(se) =>

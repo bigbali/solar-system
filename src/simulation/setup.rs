@@ -1,11 +1,9 @@
 use bevy::prelude::*;
 
 use crate::{
-    simulation::body::*, simulation::data::bodies, simulation::player::Player,
+    simulation::body::*, simulation::data::initialize_bodies, simulation::player::Player,
     simulation::settings::SimulationParameters,
 };
-
-use super::data::bodies_with_data_relative_to_sun;
 
 pub fn initialize_bodies_system(
     mut commands: Commands,
@@ -35,9 +33,10 @@ pub fn initialize_bodies_system(
         },
         metadata: BodyMetadata {
             color: Color::linear_rgb(0.5, 0.5, 0.0),
-            name: Some("Sun"),
+            name: Some("Sun".to_string()),
             texture: Some(sun_texture.clone()),
             body_type: BodyType::Star,
+            id: Some(0),
         },
     };
 
@@ -88,62 +87,64 @@ pub fn initialize_bodies_system(
 
     commands.insert_resource(Sun(sun));
 
-    for body in bodies(&asset_server, &sun_body) {
-        let mut entity = commands.spawn((
-            body.clone(),
-            Mesh3d(meshes.add(Sphere {
-                radius: body.data.radius,
-            })),
-            MeshMaterial3d(materials.add(StandardMaterial {
-                base_color: body.metadata.color,
-                base_color_texture: body.metadata.texture,
-                ..default()
-            })),
-            Transform::from_translation(body.data.position),
-        ));
+    if let Some(bodies) = initialize_bodies(&asset_server) {
+        for body in bodies {
+            let mut entity = commands.spawn((
+                body.clone(),
+                Mesh3d(meshes.add(Sphere {
+                    radius: body.data.radius,
+                })),
+                MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color: body.metadata.color,
+                    base_color_texture: body.metadata.texture,
+                    ..default()
+                })),
+                Transform::from_translation(body.data.position),
+            ));
 
-        entity.with_children(|parent| {
-            if body.metadata.name.is_none() {
-                return;
-            }
+            entity.with_children(|parent| {
+                if body.metadata.name.is_none() {
+                    return;
+                }
 
-            parent
-                .spawn((
-                    bevy_mod_billboard::BillboardText::default(),
-                    bevy_mod_billboard::BillboardDepth(false),
-                    TextLayout::new_with_justify(JustifyText::Left),
-                    Transform::from_translation(Vec3::new(
-                        0.0,
-                        body.data.radius + sun_radius / parameters.unit_scale,
-                        0.0,
+                parent
+                    .spawn((
+                        bevy_mod_billboard::BillboardText::default(),
+                        bevy_mod_billboard::BillboardDepth(false),
+                        TextLayout::new_with_justify(JustifyText::Left),
+                        Transform::from_translation(Vec3::new(
+                            0.0,
+                            body.data.radius + sun_radius / parameters.unit_scale,
+                            0.0,
+                        ))
+                        .with_scale(Vec3::splat(0.0001)),
                     ))
-                    .with_scale(Vec3::splat(0.0001)),
-                ))
-                .with_child((
-                    TextSpan::new(body.metadata.name.unwrap()),
-                    TextFont::default().with_font_size(60.0),
-                    TextColor::from(Color::WHITE),
-                ));
-        });
+                    .with_child((
+                        TextSpan::new(body.metadata.name.unwrap()),
+                        TextFont::default().with_font_size(60.0),
+                        TextColor::from(Color::WHITE),
+                    ));
+            });
 
-        match body.metadata.body_type {
-            BodyType::Star => {
-                entity.insert(Star {});
-            }
-            BodyType::Planet => {
-                entity.insert(Planet {});
-            }
-            BodyType::DwarfPlanet => {
-                entity.insert(DwarfPlanet {});
-            }
-            BodyType::Moon => {
-                entity.insert(Moon {});
-            }
-            BodyType::Other => {
-                entity.insert(Other {});
-            }
-            _ => {
-                entity.insert(Unknown {});
+            match body.metadata.body_type {
+                BodyType::Star => {
+                    entity.insert(Star {});
+                }
+                BodyType::Planet => {
+                    entity.insert(Planet {});
+                }
+                BodyType::DwarfPlanet => {
+                    entity.insert(DwarfPlanet {});
+                }
+                BodyType::Moon => {
+                    entity.insert(Moon {});
+                }
+                BodyType::Other => {
+                    entity.insert(Other {});
+                }
+                _ => {
+                    entity.insert(Unknown {});
+                }
             }
         }
     }

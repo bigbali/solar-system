@@ -8,6 +8,7 @@ pub mod player;
 pub mod settings;
 mod setup;
 pub mod trajectory;
+mod util;
 
 pub struct SimulationPlugin;
 

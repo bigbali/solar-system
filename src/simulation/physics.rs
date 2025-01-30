@@ -12,7 +12,7 @@ pub fn gravity_system(
         .collect();
 
     for (mut transform_outer, mut body_outer, entity_outer) in body_query.iter_mut() {
-        transform_outer.rotate(body_outer.data.rotation);
+        // transform_outer.rotate(body_outer.data.rotation);
         body_outer.data.acceleration = Vec3::ZERO;
 
         for (transform_inner, body_inner, entity_inner) in &bodies {
