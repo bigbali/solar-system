@@ -1,30 +1,31 @@
 import json
 import os
 import re
-from astroquery.jplhorizons import Horizons
+from typing import List, Tuple
+from astroquery.jplhorizons import Horizons, HorizonsClass
 from astropy import units as u
 
 
-# Using ID's as using names directly leads to ambiguity in some cases.
+# Using ID's, as using names directly leads to ambiguity in some cases.
 bodies = (
     (
         "largebody",  # planets
         [
             ("199", []),  # Mercury
             ("299", []),  # Venus
-            ("399", ["Luna"]),  # Earth
-            ("499", ["Phobos", "Deimos"]),  # Mars
+            ("399", ["301"]),  # Earth [Moon]
+            ("499", ["401", "402"]),  # Mars [Phobos, Deimos]
             (
                 "599",  # Jupiter
                 [
-                    "Io",
-                    "Europa",
-                    "Ganymede",
-                    "Callisto",
-                    "Metis",
-                    "Amalthea",
-                    "Andrastea",
-                    "Thebe",
+                    "501",  # Io
+                    "502",  # Europa
+                    "503",  # Ganymede
+                    "504",  # Callisto
+                    "505",  # Amalthea
+                    "514",  # Thebe
+                    "515",  # Adrastea
+                    "516",  # Metis
                 ],
             ),
             ("699", []),
@@ -78,7 +79,7 @@ def get_mass(line: str) -> float | None:
 
         mass_kg = value * (10**exponent)
 
-        return (mass_kg * u.kg).to(u.M_sun).value
+        return (mass_kg * u.kg).to(u.M_sun).value  # type: ignore
 
 
 def get_radius(line: str) -> float | None:
@@ -89,7 +90,7 @@ def get_radius(line: str) -> float | None:
     if match:
         value_km = float(match.group(2))
 
-        return (value_km * u.km).to(u.AU).value
+        return (value_km * u.km).to(u.AU).value  # type: ignore
 
 
 def get_temp(line: str) -> float | None:
@@ -157,17 +158,17 @@ corrected_ids = {
 }
 
 
-def get_id_and_name(line: str) -> [str, int]:
+def get_id_and_name(line: str) -> tuple[int, str] | None:
     """Get the ID and name of the body"""
 
     match = re.search(
-        r"\s+(\S+)\s+(\d+)(?:\s*/\s*\d+)?$",
+        r"\s+([^\s/()]+)(?:\s*/\s*\([^)]+\))?\s+(\d+)(?:\s*/\s*\d+)?$",
         line,
         re.IGNORECASE,
     )
 
     if match:
-        name = match.group(1)
+        name: str = match.group(1)
         id = int(match.group(2))
 
         return id, name
@@ -201,11 +202,18 @@ def get_data(text: str):
 
     for i, line in enumerate(properties_section.splitlines()):
         if i == 1:
-            id, name = get_id_and_name(line)
+            id_name = get_id_and_name(line)
+
+            if id_name is None:
+                continue
+
+            id, name = id_name
+
+            print(id, name)
 
             data["id"] = id
             data["name"] = name
-            data["color"] = color_map[name]
+            data["color"] = color_map[name] if name in color_map else None
 
             continue
 
@@ -244,12 +252,14 @@ def get_data(text: str):
     return data
 
 
-def get_initial_vectors(text: str):
-    start = text.find("$$SOE") + len("$$SOE")
+def get_initial_vectors(text: str) -> dict[str, dict[str, float]]:
+    start = text.find("$$SOE")
     end = text.find("$$EOE")
 
     if start == -1 or end == -1:
-        return None
+        raise ValueError("Could not find initial vectors")
+
+    start += len("$$SOE")
 
     data_section = text[start:end].strip()
     lines = data_section.split("\n")
@@ -257,6 +267,7 @@ def get_initial_vectors(text: str):
     if lines:
         first_line = lines[0]
         elements = first_line.split(",")
+
         position = [float(elements[2]), float(elements[3]), float(elements[4])]
         velocity = [float(elements[5]), float(elements[6]), float(elements[7])]
 
@@ -268,31 +279,67 @@ def get_initial_vectors(text: str):
     raise ValueError("Could not find initial vectors")
 
 
+def xxx(id: str | int):
+    # 2440400.5: 2025-01-01 00:00:00 TDB
+    # location="500@10" -> use the Sun as the center
+    body = Horizons(id=id, epochs=2440400.5, location="500@10")
+
+    vector_data = get_initial_vectors(body.vectors_async().text)  # type: ignore
+    body_data = get_data(body.ephemerides_async().text)  # type: ignore
+
+    data = {}
+
+    merged_data = body_data | vector_data
+
+    metadata = {
+        "id": merged_data.pop("id", None),
+        "name": merged_data.pop("name", None),
+        "color": merged_data.pop("color", None),
+    }
+
+    data["data"] = merged_data
+    data["metadata"] = metadata
+
+    write_responses_to_file(body, id, metadata["name"])
+
+    return data
+
+
+def write_responses_to_file(body: HorizonsClass, id: str | int, name: str):
+    path = os.path.join(os.path.dirname(__file__), "responses")
+
+    if not os.path.exists(path):
+        os.mkdir(path)
+
+    with open(
+        os.path.join(path, f"{name} – {id}.txt"), "w"
+    ) as f:
+        ephemerides = body.ephemerides_async()
+        elements = body.elements_async()
+        vectors = body.vectors_async()
+
+        f.write(f"EPHEMERIDES REQUEST URL: {ephemerides.url}\n\n")  # type: ignore
+        f.write(ephemerides.text)  # type: ignore
+
+        f.write(f"ELEMENTS REQUEST URL: {elements.url}\n\n")  # type: ignore
+        f.write(elements.text)  # type: ignore
+
+        f.write(f"VECTORS REQUEST URL: {vectors.url}\n\n")  # type: ignore
+        f.write(vectors.text)  # type: ignore
+
+
 all_bodies_data = []
 for body_type, body_list in bodies:
     for body in body_list:
         id = body[0]
-        moons = body[1]
+        satellites = body[1]
 
-        # 2440400.5: 2025-01-01 00:00:00 TDB
-        # location="500@10" -> use the Sun as the center
-        __body__ = Horizons(id=id, epochs=2440400.5, location="500@10")
+        __data__ = xxx(id)
+        __data__["satellites"] = []
 
-        vector_data = get_initial_vectors(__body__.vectors_async().text)
-        body_data = get_data(__body__.ephemerides_async().text)
-
-        __data__ = {}
-
-        merged_data = body_data | vector_data
-
-        metadata = {
-            "id": merged_data.pop("id", None),
-            "name": merged_data.pop("name", None),
-            "color": merged_data.pop("color", None)
-        }
-
-        __data__["data"] = merged_data
-        __data__["metadata"] = metadata
+        for satellite in satellites:
+            satellite_data = xxx(satellite)
+            __data__["satellites"].append(satellite_data)
 
         all_bodies_data.append(__data__)
 
@@ -302,26 +349,6 @@ for body_type, body_list in bodies:
             __data__["metadata"]["name"],
         )
         print(f"{json.dumps(__data__["data"], indent=4)}")
-
-        path = os.path.join(os.path.dirname(__file__), "responses")
-        if not os.path.exists(path):
-            os.mkdir(path)
-
-        with open(
-            os.path.join(path, f"{__data__["metadata"]["name"]} – {id}.txt"), "w"
-        ) as f:
-            ephemerides = __body__.ephemerides_async()
-            elements = __body__.elements_async()
-            vectors = __body__.vectors_async()
-
-            f.write(f"EPHEMERIDES REQUEST URL: {ephemerides.url}\n\n")
-            f.write(ephemerides.text)
-
-            f.write(f"ELEMENTS REQUEST URL: {elements.url}\n\n")
-            f.write(elements.text)
-
-            f.write(f"VECTORS REQUEST URL: {vectors.url}\n\n")
-            f.write(vectors.text)
 
 
 with open(os.path.join(os.path.dirname(__file__), "compiled_data.json"), "w") as f:
