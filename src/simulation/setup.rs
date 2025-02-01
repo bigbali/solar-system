@@ -38,6 +38,7 @@ pub fn initialize_bodies_system(
             body_type: BodyType::Star,
             id: Some(0),
         },
+        satellites: None,
     };
 
     let sun = commands
@@ -144,6 +145,55 @@ pub fn initialize_bodies_system(
                 }
                 _ => {
                     entity.insert(Unknown {});
+                }
+            }
+
+            if let Some(satellites) = body.satellites {
+                for satellite in satellites {
+                    let satellite = satellite.read().unwrap();
+
+                    let mut entity = commands.spawn((
+                        satellite.clone(),
+                        Mesh3d(meshes.add(Sphere {
+                            radius: satellite.data.radius,
+                        })),
+                        MeshMaterial3d(materials.add(StandardMaterial {
+                            base_color: satellite.metadata.color,
+                            base_color_texture: satellite.metadata.texture.clone(),
+                            ..default()
+                        })),
+                        Transform::from_translation(satellite.data.position),
+                    ));
+
+                    entity.with_children(|parent| {
+                        if satellite.metadata.name.is_none() {
+                            return;
+                        }
+
+                        parent
+                            .spawn((
+                                bevy_mod_billboard::BillboardText::default(),
+                                bevy_mod_billboard::BillboardDepth(false),
+                                TextLayout::new_with_justify(JustifyText::Left),
+                                Transform::from_translation(Vec3::new(
+                                    0.0,
+                                    satellite.data.radius + sun_radius / parameters.unit_scale,
+                                    0.0,
+                                ))
+                                .with_scale(Vec3::splat(0.0001)),
+                            ))
+                            .with_child((
+                                TextSpan::new(
+                                    satellite
+                                        .metadata
+                                        .name
+                                        .clone()
+                                        .unwrap_or("<unknown>".to_string()),
+                                ),
+                                TextFont::default().with_font_size(60.0),
+                                TextColor::from(Color::WHITE),
+                            ));
+                    });
                 }
             }
         }

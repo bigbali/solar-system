@@ -1,23 +1,20 @@
+use std::cell::{Ref, RefCell};
+use std::sync::{Arc, RwLock};
+
 use bevy::{color::Color, prelude::*};
 use serde::Deserialize;
 
 use super::settings::{FollowBody, SimulationParameters};
-use super::util::{deserialize_color, deserialize_vec3};
+use super::util::{deserialize_color, deserialize_satellites, deserialize_vec3};
 
 #[derive(Debug, Component, Clone, Deserialize)]
 #[require(Mesh3d, MeshMaterial3d<StandardMaterial>)]
 pub struct Body {
     pub data: BodyData,
     pub metadata: BodyMetadata,
-}
 
-impl Body {
-    pub fn downscale_by_astronomical_units(&self, parameters: &SimulationParameters) -> Self {
-        Self {
-            data: self.data.downscaled(parameters),
-            metadata: self.metadata.clone(),
-        }
-    }
+    #[serde(default, deserialize_with = "deserialize_satellites")]
+    pub satellites: Option<Vec<Arc<RwLock<Body>>>>,
 }
 
 #[derive(Debug, Clone, Component, Copy, Deserialize)]
@@ -92,6 +89,7 @@ impl BodyData {
 }
 
 #[derive(Debug, Component, Clone, Deserialize)]
+#[serde(default)]
 pub struct BodyMetadata {
     pub name: Option<String>,
     pub id: Option<u32>,
@@ -119,13 +117,14 @@ impl Default for BodyMetadata {
 }
 
 /// To be used when loading data.
+#[derive(Debug, Clone, Default)]
 pub struct MetaLoader {
     pub texture: Option<Handle<Image>>,
-    pub body_type: Option<BodyType>,
+    pub body_type: BodyType,
 }
 
 impl MetaLoader {
-    pub fn new(texture: Option<Handle<Image>>, body_type: Option<BodyType>) -> Self {
+    pub fn new(texture: Option<Handle<Image>>, body_type: BodyType) -> Self {
         Self { texture, body_type }
     }
 }

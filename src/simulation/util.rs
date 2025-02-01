@@ -3,7 +3,13 @@ use serde::{
     de::{self, MapAccess, Visitor},
     Deserialize, Deserializer,
 };
-use std::fmt;
+use std::{
+    cell::RefCell,
+    fmt,
+    sync::{Arc, RwLock},
+};
+
+use super::body::Body;
 
 pub fn deserialize_vec3<'de, D>(deserializer: D) -> Result<Vec3, D::Error>
 where
@@ -50,6 +56,57 @@ pub fn deserialize_color<'de, D>(deserializer: D) -> Result<Color, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let arr: [f32; 4] = Deserialize::deserialize(deserializer)?;
-    Ok(Color::rgba(arr[0], arr[1], arr[2], arr[3]))
+    let arr: Option<[f32; 4]> = Option::deserialize(deserializer)?;
+
+    Ok(arr
+        .map(|[r, g, b, a]| Color::srgba(r, g, b, a))
+        .unwrap_or_else(|| super::body::BodyMetadata::default().color))
+}
+
+pub fn deserialize_satellites<'de, D>(
+    deserializer: D,
+) -> Result<Option<Vec<Arc<RwLock<Body>>>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::{Error, SeqAccess, Visitor};
+    use std::fmt;
+
+    struct SatellitesVisitor;
+
+    impl<'de> Visitor<'de> for SatellitesVisitor {
+        type Value = Option<Vec<Arc<RwLock<Body>>>>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("an optional array of satellites")
+        }
+
+        fn visit_none<E>(self) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
+            Ok(None)
+        }
+
+        fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            deserializer.deserialize_seq(self)
+        }
+
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+        where
+            A: SeqAccess<'de>,
+        {
+            let mut satellites = Vec::new();
+            while let Some(satellite) = seq.next_element::<Body>()? {
+                satellites.push(Arc::new(RwLock::new(satellite)));
+            }
+
+            Ok(Some(satellites))
+        }
+    }
+
+    deserializer.deserialize_option(SatellitesVisitor)
 }

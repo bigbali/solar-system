@@ -1,28 +1,33 @@
-use std::{fs::File, io::Read, path::Path};
+use std::{
+    fs::File,
+    io::Read,
+    path::Path,
+    sync::{Arc, RwLock},
+};
 
 use bevy::{color::palettes::tailwind, prelude::*, utils::HashMap};
 
 use crate::simulation::body::{Body, BodyType};
 
-use super::body::{BodyMetadata, MetaLoader as MetaMap};
+use super::body::{BodyMetadata, MetaLoader};
 
 /// Initialize the celestial bodies with their initial data.
 /// We get the data using the JPL Horizons API from our pretty little Python script.
 pub fn initialize_bodies(asset_server: &Res<AssetServer>) -> Option<Vec<Body>> {
-    let metadata_map: HashMap<&'static str, MetaMap> = HashMap::from([
-        ("Mercury", MetaMap::new(None, Some(BodyType::Planet))),
-        ("Venus", MetaMap::new(None, Some(BodyType::Planet))),
-        ("Earth", MetaMap::new(None, Some(BodyType::Planet))),
-        ("Mars", MetaMap::new(None, Some(BodyType::Planet))),
-        ("Jupiter", MetaMap::new(None, Some(BodyType::Planet))),
-        ("Saturn", MetaMap::new(None, Some(BodyType::Planet))),
-        ("Uranus", MetaMap::new(None, Some(BodyType::Planet))),
-        ("Neptune", MetaMap::new(None, Some(BodyType::Planet))),
-        ("Pluto", MetaMap::new(None, Some(BodyType::DwarfPlanet))),
-        ("Ceres", MetaMap::new(None, Some(BodyType::DwarfPlanet))),
-        ("Eris", MetaMap::new(None, Some(BodyType::DwarfPlanet))),
-        ("Haumea", MetaMap::new(None, Some(BodyType::DwarfPlanet))),
-        ("Makemake", MetaMap::new(None, Some(BodyType::DwarfPlanet))),
+    let metadata_map: HashMap<&'static str, MetaLoader> = HashMap::from([
+        ("Mercury", MetaLoader::new(None, BodyType::Planet)),
+        ("Venus", MetaLoader::new(None, BodyType::Planet)),
+        ("Earth", MetaLoader::new(None, BodyType::Planet)),
+        ("Mars", MetaLoader::new(None, BodyType::Planet)),
+        ("Jupiter", MetaLoader::new(None, BodyType::Planet)),
+        ("Saturn", MetaLoader::new(None, BodyType::Planet)),
+        ("Uranus", MetaLoader::new(None, BodyType::Planet)),
+        ("Neptune", MetaLoader::new(None, BodyType::Planet)),
+        ("Pluto", MetaLoader::new(None, BodyType::DwarfPlanet)),
+        ("Ceres", MetaLoader::new(None, BodyType::DwarfPlanet)),
+        ("Eris", MetaLoader::new(None, BodyType::DwarfPlanet)),
+        ("Haumea", MetaLoader::new(None, BodyType::DwarfPlanet)),
+        ("Makemake", MetaLoader::new(None, BodyType::DwarfPlanet)),
     ]);
 
     let bodies = load_data();
@@ -32,17 +37,44 @@ pub fn initialize_bodies(asset_server: &Res<AssetServer>) -> Option<Vec<Body>> {
             bodies
                 .iter()
                 .map(|b| {
+                    let binding = MetaLoader::default();
                     let meta = metadata_map
                         .get(b.metadata.name.as_ref().unwrap().as_str())
-                        .unwrap();
+                        .unwrap_or(&binding);
 
                     Body {
                         metadata: BodyMetadata {
                             texture: meta.texture.clone(),
-                            body_type: meta.body_type.clone().unwrap_or_default(),
+                            body_type: meta.body_type.clone(),
                             ..b.metadata.clone()
                         },
                         data: b.data,
+                        satellites: match &b.satellites {
+                            Some(satellites) => Some(
+                                satellites
+                                    .iter()
+                                    .map(|satellite| {
+                                        let satellite = satellite.read().unwrap();
+
+                                        let binding = MetaLoader::default();
+                                        let meta = metadata_map
+                                            .get(b.metadata.name.as_ref().unwrap().as_str())
+                                            .unwrap_or(&binding);
+
+                                        Arc::new(RwLock::new(Body {
+                                            metadata: BodyMetadata {
+                                                texture: meta.texture.clone(),
+                                                body_type: meta.body_type.clone(),
+                                                ..satellite.metadata.clone()
+                                            },
+                                            data: satellite.data,
+                                            satellites: None,
+                                        }))
+                                    })
+                                    .collect(),
+                            ),
+                            None => None,
+                        },
                     }
                 })
                 .collect(),
