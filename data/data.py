@@ -1,9 +1,15 @@
 import json
+import logging
+import math
 import os
 import re
-from typing import List, Tuple
+from typing import Any
 from astroquery.jplhorizons import Horizons, HorizonsClass
 from astropy import units as u
+
+logging.basicConfig(
+    level=logging.WARNING, format="\033[93m%(levelname)s: %(message)s\033[0m"
+)
 
 
 # Using ID's, as using names directly leads to ambiguity in some cases.
@@ -190,7 +196,7 @@ def get_id_and_name(line: str) -> tuple[int, str] | None:
         return id, name
 
 
-def get_data(text: str):
+def get_geophysical_data(text: str):
     start_marker = "***"
     end_marker = "\n\n\n"
     start_index = text.find(start_marker)
@@ -279,13 +285,29 @@ def get_initial_vectors(text: str) -> dict[str, dict[str, float]]:
     raise ValueError("Could not find initial vectors")
 
 
-def xxx(id: str | int):
+def calculate_missing_data(data: dict[str, Any], name: str):
+    if "mass" not in data:
+        if "density" in data and "radius" in data:
+            data["mass"] = (4 / 3) * math.pi * data["density"] * (data["radius"] ** 3)
+            logging.warning(
+                f"Missing mass for {name}! Using calculated value: {data['mass']} M☉."
+            )
+        else:
+            data["mass"] = (1.0e16 * u.kg).to(u.M_sun).value  # type: ignore
+            logging.warning(
+                f"Missing mass for {name}! Using fallback value: {data['mass']} M☉."
+            )
+
+    return data
+
+
+def get_data(id: str | int):
     # 2440400.5: 2025-01-01 00:00:00 TDB
     # location="500@10" -> use the Sun as the center
     body = Horizons(id=id, epochs=2440400.5, location="500@10")
 
     vector_data = get_initial_vectors(body.vectors_async().text)  # type: ignore
-    body_data = get_data(body.ephemerides_async().text)  # type: ignore
+    body_data = get_geophysical_data(body.ephemerides_async().text)  # type: ignore
 
     data = {}
 
@@ -297,7 +319,7 @@ def xxx(id: str | int):
         "color": merged_data.pop("color", None),
     }
 
-    data["data"] = merged_data
+    data["data"] = calculate_missing_data(merged_data, metadata["name"])
     data["metadata"] = metadata
 
     write_responses_to_file(body, id, metadata["name"])
@@ -311,9 +333,7 @@ def write_responses_to_file(body: HorizonsClass, id: str | int, name: str):
     if not os.path.exists(path):
         os.mkdir(path)
 
-    with open(
-        os.path.join(path, f"{name} – {id}.txt"), "w"
-    ) as f:
+    with open(os.path.join(path, f"{name} – {id}.txt"), "w") as f:
         ephemerides = body.ephemerides_async()
         elements = body.elements_async()
         vectors = body.vectors_async()
@@ -334,11 +354,11 @@ for body_type, body_list in bodies:
         id = body[0]
         satellites = body[1]
 
-        __data__ = xxx(id)
+        __data__ = get_data(id)
         __data__["satellites"] = []
 
         for satellite in satellites:
-            satellite_data = xxx(satellite)
+            satellite_data = get_data(satellite)
             __data__["satellites"].append(satellite_data)
 
         all_bodies_data.append(__data__)
