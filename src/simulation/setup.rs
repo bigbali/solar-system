@@ -194,6 +194,27 @@ pub fn initialize_bodies_system(
                                 TextColor::from(Color::WHITE),
                             ));
                     });
+
+                    match satellite.metadata.body_type {
+                        BodyType::Star => {
+                            entity.insert(Star {});
+                        }
+                        BodyType::Planet => {
+                            entity.insert(Planet {});
+                        }
+                        BodyType::DwarfPlanet => {
+                            entity.insert(DwarfPlanet {});
+                        }
+                        BodyType::Moon => {
+                            entity.insert(Moon {});
+                        }
+                        BodyType::Other => {
+                            entity.insert(Other {});
+                        }
+                        _ => {
+                            entity.insert(Unknown {});
+                        }
+                    }
                 }
             }
         }

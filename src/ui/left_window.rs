@@ -98,7 +98,7 @@ pub fn left_window_system(
                     .build();
                 ui.input_float(
                     "Simulation Speed Multiplier",
-                    &mut parameters.speed_multiplier,
+                    &mut parameters.updates_per_step,
                 )
                 .step(1.0)
                 .build();
@@ -187,7 +187,7 @@ pub fn left_window_system(
                 .step(100.0)
                 .build();
 
-            ui.input_float("Simulation Speed", &mut parameters.speed_multiplier)
+            ui.input_float("Simulation Speed", &mut parameters.updates_per_step)
                 .step(0.1)
                 .build();
 

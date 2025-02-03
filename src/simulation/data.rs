@@ -18,8 +18,19 @@ pub fn initialize_bodies(asset_server: &Res<AssetServer>) -> Option<Vec<Body>> {
         ("Mercury", MetaLoader::new(None, BodyType::Planet)),
         ("Venus", MetaLoader::new(None, BodyType::Planet)),
         ("Earth", MetaLoader::new(None, BodyType::Planet)),
+        /**/ ("Moon", MetaLoader::new(None, BodyType::Moon)),
         ("Mars", MetaLoader::new(None, BodyType::Planet)),
+        /**/ ("Phobos", MetaLoader::new(None, BodyType::Moon)),
+        /**/ ("Deimos", MetaLoader::new(None, BodyType::Moon)),
         ("Jupiter", MetaLoader::new(None, BodyType::Planet)),
+        /**/ ("Io", MetaLoader::new(None, BodyType::Moon)),
+        /**/ ("Europa", MetaLoader::new(None, BodyType::Moon)),
+        /**/ ("Ganymede", MetaLoader::new(None, BodyType::Moon)),
+        /**/ ("Callisto", MetaLoader::new(None, BodyType::Moon)),
+        /**/ ("Amalthea", MetaLoader::new(None, BodyType::Moon)),
+        /**/ ("Thebe", MetaLoader::new(None, BodyType::Moon)),
+        /**/ ("Adrastea", MetaLoader::new(None, BodyType::Moon)),
+        /**/ ("Metis", MetaLoader::new(None, BodyType::Moon)),
         ("Saturn", MetaLoader::new(None, BodyType::Planet)),
         ("Uranus", MetaLoader::new(None, BodyType::Planet)),
         ("Neptune", MetaLoader::new(None, BodyType::Planet)),
@@ -53,18 +64,18 @@ pub fn initialize_bodies(asset_server: &Res<AssetServer>) -> Option<Vec<Body>> {
                             Some(satellites) => Some(
                                 satellites
                                     .iter()
-                                    .map(|satellite| {
-                                        let satellite = satellite.read().unwrap();
+                                    .map(|s| {
+                                        let satellite = s.read().unwrap();
 
-                                        let binding = MetaLoader::default();
-                                        let meta = metadata_map
-                                            .get(b.metadata.name.as_ref().unwrap().as_str())
-                                            .unwrap_or(&binding);
+                                        let s_binding = MetaLoader::default();
+                                        let s_meta = metadata_map
+                                            .get(satellite.metadata.name.as_ref().unwrap().as_str())
+                                            .unwrap_or(&s_binding);
 
                                         Arc::new(RwLock::new(Body {
                                             metadata: BodyMetadata {
-                                                texture: meta.texture.clone(),
-                                                body_type: meta.body_type.clone(),
+                                                texture: s_meta.texture.clone(),
+                                                body_type: s_meta.body_type.clone(),
                                                 ..satellite.metadata.clone()
                                             },
                                             data: satellite.data,
