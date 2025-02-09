@@ -4,13 +4,14 @@ use serde::{
     Deserialize, Deserializer,
 };
 use std::{
-    cell::RefCell,
     fmt,
     sync::{Arc, RwLock},
 };
 
 use super::body::Body;
 
+/// Deserialize our JSON data into proper Vec3 types.
+/// Note: we are swapping "z" and "y" because they are flipped in our JSON data.
 pub fn deserialize_vec3<'de, D>(deserializer: D) -> Result<Vec3, D::Error>
 where
     D: Deserializer<'de>,
@@ -35,8 +36,8 @@ where
             while let Some(key) = map.next_key::<&str>()? {
                 match key {
                     "x" => x = Some(map.next_value()?),
-                    "y" => y = Some(map.next_value()?),
-                    "z" => z = Some(map.next_value()?),
+                    "y" => z = Some(map.next_value()?), // y -> z
+                    "z" => y = Some(map.next_value()?), // z -> y
                     _ => return Err(de::Error::unknown_field(key, &["x", "y", "z"])),
                 }
             }

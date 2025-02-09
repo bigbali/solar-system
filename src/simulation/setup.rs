@@ -49,7 +49,7 @@ pub fn initialize_bodies_system(
             })),
             MeshMaterial3d(materials.add(StandardMaterial {
                 emissive_texture: Some(sun_texture),
-                emissive: LinearRgba::WHITE,
+                emissive: LinearRgba::new(100.0, 25.0, 25.0, 1.0),
                 ..default()
             })),
             Transform::from_translation(sun_body.data.position),
@@ -61,7 +61,7 @@ pub fn initialize_bodies_system(
                 color: Color::WHITE,
                 range: f32::MAX,
                 radius: sun_radius / parameters.unit_scale * 1.05,
-                intensity: 1_000_000_000_000.0,
+                intensity: 1_000_000.0,
                 shadow_depth_bias: 0.0,
                 shadow_map_near_z: 0.0,
                 shadow_normal_bias: 0.0,
@@ -240,11 +240,11 @@ pub fn spawn_player_system(mut commands: Commands, parameters: Res<SimulationPar
                     hdr: true,
                     ..default()
                 },
-                PerspectiveProjection {
+                Projection::Perspective(PerspectiveProjection {
                     fov: 70.0_f32.to_radians(),
-                    near: 0.0,
+                    near: 1e-5,
                     ..default()
-                },
+                }),
                 Transform::from_xyz(0.0, 0.0, 0.00465047 / parameters.unit_scale)
                     .looking_at(Vec3::ZERO, Vec3::Y),
                 bevy_flycam::FlyCam,

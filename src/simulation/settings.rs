@@ -19,7 +19,7 @@ pub struct SimulationParameters {
     /// Days per second
     pub time_step: f32,
 
-    /// Increasing this will increase the accuracy of the simulation. I'm too stupid to explain :(
+    /// Increasing this will increase the accuracy of the simulation.
     pub updates_per_step: f32,
 
     /// Prevents bodies from getting too close, causing instability and crazy large forces
@@ -36,7 +36,7 @@ impl Default for SimulationParameters {
             mass_scale: 1.0,
             unit_scale: 1.0,
             time_step: 1.0,
-            updates_per_step: 0.1,
+            updates_per_step: 10.0,
             softening_factor: 1e-12,
             integrator: Integrator::default(),
         }
@@ -69,7 +69,7 @@ pub fn elapsed_time_update_system(
     mut elapsed_time: ResMut<ElapsedTime>,
     parameters: Res<SimulationParameters>,
 ) {
-    elapsed_time.0 += parameters.time_step;
+    elapsed_time.0 += parameters.time_step / UPDATE_FREQUENCY as f32;
 }
 
 pub fn params_override_system(mut params: ResMut<SimulationParameters>) {
@@ -88,7 +88,6 @@ pub fn params_override_system(mut params: ResMut<SimulationParameters>) {
         let field = &arg[0];
         let value = &arg[1];
 
-        println!("{} {}", field, value);
         if field == "integrator" {
             let parameter_override: &mut Integrator = params.get_field_mut(field).unwrap();
             let override_successful = match value.as_str() {

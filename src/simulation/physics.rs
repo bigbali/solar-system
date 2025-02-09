@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use super::{
     body::Body,
-    settings::{Integrator, SimulationParameters},
+    settings::{Integrator, SimulationParameters, UPDATE_FREQUENCY},
 };
 
 pub fn gravity_system(
@@ -11,10 +11,14 @@ pub fn gravity_system(
 ) {
     let p = &parameters;
 
+    let total_updates =
+        (p.time_step.abs() * p.updates_per_step / UPDATE_FREQUENCY as f32).round() as i32;
+
     // We want to do multiple updates per step to improve accuracy.
-    // Do note that this will run each physics update, thus (60 * time_step * updates_per_step) times / second.
-    // That would make it 360 updates per second with the default 0.1 updates_per_step.
-    for _ in 0..(p.time_step * p.updates_per_step) as i32 {
+    // Do note that this will run each physics update, thus (time_step / 60 * updates_per_step) times / second.
+    // That would be 10 updates per frame with 10.0 updates_per_step and 60.0 time_scaling.
+    // We also make sure that we run at least 1 update per frame.
+    for _ in 0..total_updates.max(1) {
         match p.integrator {
             Integrator::Euler => euler(body_query.reborrow(), p),
             Integrator::Leapfrog => leapfrog(body_query.reborrow(), p),
@@ -23,7 +27,7 @@ pub fn gravity_system(
     }
 }
 
-fn compute_acceleration(
+pub fn compute_acceleration(
     translation: Vec3,
     bodies: &[(Transform, Body, Entity)],
     parameters: &SimulationParameters,
@@ -59,6 +63,9 @@ fn euler(
         .map(|(t, p, e)| (t.clone(), p.clone(), e))
         .collect();
 
+    // Make sure that we account for the total updates per frame.
+    let multiplier = parameters.time_step / UPDATE_FREQUENCY as f32 / parameters.updates_per_step;
+
     for (mut transform_outer, mut body_outer, entity_outer) in body_query.iter_mut() {
         let acceleration = compute_acceleration(
             transform_outer.translation,
@@ -68,8 +75,8 @@ fn euler(
         );
 
         body_outer.data.acceleration = acceleration;
-        body_outer.data.velocity += acceleration * parameters.updates_per_step;
-        transform_outer.translation += body_outer.data.velocity * parameters.updates_per_step;
+        body_outer.data.velocity += acceleration * multiplier;
+        transform_outer.translation += body_outer.data.velocity * multiplier;
     }
 }
 
