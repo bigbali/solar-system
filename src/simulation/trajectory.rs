@@ -96,3 +96,11 @@ pub fn precalculate_trajectory_system(
         }
     }
 }
+
+pub fn trajectory_projection_system(
+    body_query: Query<(&Transform, &Body, Entity)>,
+    trajectory: Res<CalculateTrajectory>,
+    mut trajectories: ResMut<Trajectories>,
+    parameters: Res<SimulationParameters>,
+) {
+}

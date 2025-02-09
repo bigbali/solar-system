@@ -1,16 +1,36 @@
-use bevy::prelude::*;
-use left_window::left_window_system;
-use right_window::right_window_system;
+use std::ops::{Deref, DerefMut};
 
+use bevy::prelude::*;
+use imgui::ImColor32;
+// use flex::FlexAxisAlign;
+use left_window::left_window_system;
+use mint::Vector4;
+use right_window::right_window_system;
+use util::{active, hover, rgba};
+use window::{spawn_window::spawn_window_system, test_window::test_window_system};
+
+mod element;
+// mod flex;
 mod left_window;
 mod right_window;
+// mod spawn_ui;
+mod util;
+mod window;
 
 pub struct SimulationUiPlugin;
 
 impl Plugin for SimulationUiPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, performance_metrics_system)
-            .add_systems(Update, (left_window_system, right_window_system));
+            .add_systems(
+                Update,
+                (
+                    // left_window_system,
+                    // right_window_system,
+                    spawn_window_system,
+                    // test_window_system,
+                ),
+            );
     }
 }
 
@@ -24,6 +44,7 @@ fn performance_metrics_system(mut commands: Commands) {
     ));
 }
 
+// TODO util
 pub fn apply_button_color<'a>(
     ui: &'a imgui::Ui,
     color: LinearRgba,
@@ -61,8 +82,90 @@ pub fn apply_button_color<'a>(
     return color_stack;
 }
 
+// TODO util
 pub fn clear_button_color(stack: Vec<imgui::ColorStackToken>) {
     for color in stack {
         color.pop();
+    }
+}
+
+#[non_exhaustive]
+pub struct DefaultColor;
+
+impl DefaultColor {
+    pub const Text: [f32; 4] = rgba([255.0, 255.0, 255.0, 1.0]);
+    pub const Background: [f32; 4] = rgba([13.0, 13.0, 13.0, 1.0]);
+    pub const Button: [f32; 4] = rgba([26.0, 26.0, 26.0, 1.0]);
+    pub const ButtonHover: [f32; 4] = hover(Self::Button);
+    pub const ButtonActive: [f32; 4] = active(Self::Button);
+    pub const Input: [f32; 4] = Self::Button;
+    pub const InputBorder: [f32; 4] = rgba([38.0, 38.0, 38.0, 1.0]);
+    pub const Border: [f32; 4] = rgba([26.0, 26.0, 26.0, 1.0]);
+}
+
+#[derive(Debug, Clone, Copy)]
+struct UiColor(Color);
+
+impl UiColor {
+    pub const fn new(color: Color) -> Self {
+        Self(color)
+    }
+}
+
+impl Default for UiColor {
+    fn default() -> Self {
+        Self(Color::WHITE)
+    }
+}
+
+impl From<Color> for UiColor {
+    fn from(color: Color) -> Self {
+        Self(color)
+    }
+}
+
+impl From<LinearRgba> for UiColor {
+    fn from(color: LinearRgba) -> Self {
+        Self(Color::from(color))
+    }
+}
+
+impl Into<LinearRgba> for UiColor {
+    fn into(self) -> LinearRgba {
+        self.to_linear()
+    }
+}
+
+impl Into<Vector4<f32>> for UiColor {
+    fn into(self) -> Vector4<f32> {
+        let c = self.to_linear();
+
+        Vector4 {
+            x: c.red,
+            y: c.green,
+            z: c.blue,
+            w: c.alpha,
+        }
+    }
+}
+
+impl Deref for UiColor {
+    type Target = Color;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for UiColor {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Into<ImColor32> for UiColor {
+    fn into(self) -> ImColor32 {
+        let c = self.to_linear().to_f32_array();
+        ImColor32::from_rgba_f32s(c[0], c[1], c[2], c[3])
     }
 }

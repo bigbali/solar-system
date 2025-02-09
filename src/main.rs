@@ -1,9 +1,14 @@
 use bevy::prelude::*;
 
+use bevy_ui_anchor::AnchorUiPlugin;
+use material::saturn_rings::SaturnRingMaterial;
 use simulation::SimulationPlugin;
+use spawn::SpawnBodyPlugin;
 use ui::SimulationUiPlugin;
 
+mod material;
 mod simulation;
+mod spawn;
 mod ui;
 
 fn main() {
@@ -16,6 +21,8 @@ fn main() {
         .add_plugins(iyes_perf_ui::PerfUiPlugin)
         .add_plugins(SimulationPlugin)
         .add_plugins(SimulationUiPlugin)
+        .add_plugins(SpawnBodyPlugin)
+        .add_plugins(MaterialPlugin::<SaturnRingMaterial>::default())
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(AmbientLight {
             color: Color::BLACK,

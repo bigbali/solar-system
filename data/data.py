@@ -15,6 +15,9 @@ logging.basicConfig(
 # Using ID's, as using names directly leads to ambiguity in some cases.
 bodies = (
     (
+        "sun", [("10", [])],
+    ),
+    (
         "largebody",  # planets
         [
             ("199", []),  # Mercury
@@ -52,6 +55,7 @@ bodies = (
 )
 
 color_map = {
+    "Sun": [0.96, 0.75, 0.15, 1.0],
     "Mercury": [0.5, 0.5, 0.5, 1.0],
     "Venus": [0.9, 0.8, 0.6, 1.0],
     "Earth": [0.0, 0.5, 1.0, 1.0],
@@ -97,6 +101,13 @@ def get_radius(line: str) -> float | None:
         value_km = float(match.group(2))
 
         return (value_km * u.km).to(u.AU).value  # type: ignore
+    else:  # this is actual in case of the Sun, apparently
+        match = re.search(r"Vol. mean radius, km\s*=\s*([\d\.]+)", line, re.IGNORECASE)
+
+        if match:
+            value_km = float(match.group(1))
+
+            return (value_km * u.km).to(u.AU).value  # type: ignore
 
 
 def get_temp(line: str) -> float | None:
@@ -205,6 +216,7 @@ def get_geophysical_data(text: str):
     properties_section = text[start_index:end_index].strip()
 
     data = {}
+    metadata = {}
 
     for i, line in enumerate(properties_section.splitlines()):
         if i == 1:
@@ -217,9 +229,9 @@ def get_geophysical_data(text: str):
 
             print(id, name)
 
-            data["id"] = id
-            data["name"] = name
-            data["color"] = color_map[name] if name in color_map else None
+            metadata["id"] = id
+            metadata["name"] = name
+            metadata["color"] = color_map[name] if name in color_map else None
 
             continue
 
@@ -231,9 +243,12 @@ def get_geophysical_data(text: str):
         # The first value *should* have been what we want.
 
         # Note: small bodies such as Ceres, Eris, etc. do not seem to have these properties listed.
-        mass = get_mass(line)
-        if mass is not None and "mass" not in data:
-            data["mass"] = mass
+        if "name" in data and data["name"].lower() == "sun":
+            data["mass"] = (1 * u.M_sun).value  # type: ignore
+        else:
+            mass = get_mass(line)
+            if mass is not None and "mass" not in data:
+                data["mass"] = mass
 
         radius = get_radius(line)
         if radius is not None and "radius" not in data:
@@ -255,7 +270,7 @@ def get_geophysical_data(text: str):
         if rotation is not None and "rotation" not in data:
             data["rotation"] = rotation
 
-    return data
+    return data, metadata
 
 
 def get_initial_vectors(text: str) -> dict[str, dict[str, float]]:
@@ -285,7 +300,59 @@ def get_initial_vectors(text: str) -> dict[str, dict[str, float]]:
     raise ValueError("Could not find initial vectors")
 
 
-def calculate_missing_data(data: dict[str, Any], name: str):
+def get_geometric_osculating_elements(text: str, data_unavailable: bool) -> dict[str, float] | None:
+    """Get data related to the orbit of the body."""
+
+    start = text.find("$$SOE")
+    end = text.find("$$EOE")
+
+    start += len("$$SOE")
+
+    data_section = text[start:end].strip()
+    lines = data_section.split("\n")
+
+    if not lines or data_unavailable:
+        return None
+
+    first_line = lines[0]
+    elements = first_line.split(",")
+
+    # Assumption: the ordering of the values is constant between requests
+
+    # jdtdb = float(elements[0])
+    # calendar_date = elements[1].strip()
+    eccentricity = float(elements[2])
+    periapsis_distance = float(elements[3])
+    inclination = float(elements[4])
+    longitude_of_ascending_node = float(elements[5])
+    argument_of_perifocus = float(elements[6])
+    time_of_periapsis = float(elements[7])
+    mean_motion = float(elements[8])
+    mean_anomaly = float(elements[9])
+    true_anomaly = float(elements[10])
+    semi_major_axis = float(elements[11])
+    apoapsis_distance = float(elements[12])
+    sidereal_orbit_period = float(elements[13])
+
+    return {
+        # "jdtdb": jdtdb,
+        # "calendar_date": calendar_date,
+        "eccentricity": eccentricity,
+        "periapsis_distance": periapsis_distance,
+        "inclination": inclination,
+        "longitude_of_ascending_node": longitude_of_ascending_node,
+        "argument_of_perifocus": argument_of_perifocus,
+        "time_of_periapsis": time_of_periapsis,
+        "mean_motion": mean_motion,
+        "mean_anomaly": mean_anomaly,
+        "true_anomaly": true_anomaly,
+        "semi_major_axis": semi_major_axis,
+        "apoapsis_distance": apoapsis_distance,
+        "sidereal_orbit_period": sidereal_orbit_period,
+    }
+
+
+def attempt_to_fill_missing_data(data: dict[str, Any], name: str):
     if "mass" not in data:
         if "density" in data and "radius" in data:
             data["mass"] = (4 / 3) * math.pi * data["density"] * (data["radius"] ** 3)
@@ -295,34 +362,27 @@ def calculate_missing_data(data: dict[str, Any], name: str):
         else:
             data["mass"] = (1.0e16 * u.kg).to(u.M_sun).value  # type: ignore
             logging.warning(
-                f"Missing mass for {name}! Using fallback value: {data['mass']} M☉."
+                f"Missing mass for {name}! Using arbitrary fallback value: {data['mass']} M☉."
             )
 
     return data
 
 
 def get_data(id: str | int):
-    # 2440400.5: 2025-01-01 00:00:00 TDB
+    # 2460676.5: 2025-01-01 00:00:00 TDB
     # location="500@10" -> use the Sun as the center
-    body = Horizons(id=id, epochs=2440400.5, location="500@10")
+    body = Horizons(id=id, epochs=2460676.5, location="500@10")
 
     vector_data = get_initial_vectors(body.vectors_async().text)  # type: ignore
-    body_data = get_geophysical_data(body.ephemerides_async().text)  # type: ignore
+    body_data, body_metadata = get_geophysical_data(body.ephemerides_async().text)  # type: ignore
+    osculating_elements_data = get_geometric_osculating_elements(body.elements_async().text, body_metadata["name"] == "Sun")  # type: ignore
 
-    data = {}
+    data: dict[str, Any] = {}
 
-    merged_data = body_data | vector_data
+    data["data"] = attempt_to_fill_missing_data(body_data | vector_data | {"orbital_elements": osculating_elements_data}, body_metadata["name"])
+    data["metadata"] = body_metadata
 
-    metadata = {
-        "id": merged_data.pop("id", None),
-        "name": merged_data.pop("name", None),
-        "color": merged_data.pop("color", None),
-    }
-
-    data["data"] = calculate_missing_data(merged_data, metadata["name"])
-    data["metadata"] = metadata
-
-    write_responses_to_file(body, id, metadata["name"])
+    write_responses_to_file(body, id, body_metadata["name"])
 
     return data
 

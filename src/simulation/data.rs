@@ -15,6 +15,10 @@ use super::body::{BodyMetadata, MetaLoader};
 /// We get the data using the JPL Horizons API from our pretty little Python script.
 pub fn initialize_bodies(asset_server: &Res<AssetServer>) -> Option<Vec<Body>> {
     let metadata_map: HashMap<&'static str, MetaLoader> = HashMap::from([
+        (
+            "Sun",
+            MetaLoader::new(Some(asset_server.load("sun.jpg")), BodyType::Star),
+        ),
         ("Mercury", MetaLoader::new(None, BodyType::Planet)),
         ("Venus", MetaLoader::new(None, BodyType::Planet)),
         ("Earth", MetaLoader::new(None, BodyType::Planet)),
@@ -108,7 +112,43 @@ pub fn load_data() -> Option<Vec<Body>> {
 
             let data: Vec<Body> = serde_json::from_str(&contents).unwrap();
 
-            info!("Successfully loaded data for {} bodies", data.len());
+            info!(
+                "Successfully loaded data for {} bodies:",
+                data.len()
+                    + data.iter().fold(0, |acc, b| {
+                        acc + b
+                            .satellites
+                            .as_ref()
+                            .and_then(|s| Some(s.len()))
+                            .unwrap_or(0)
+                    })
+            );
+
+            for body in &data {
+                let name = body
+                    .metadata
+                    .name
+                    .clone()
+                    .unwrap_or(format!("<unknown {}>", body.metadata.body_type));
+
+                info!("    {}", name);
+
+                for satellite in body.satellites.as_ref().unwrap() {
+                    info!(
+                        "        {}",
+                        satellite
+                            .read()
+                            .unwrap()
+                            .metadata
+                            .name
+                            .clone()
+                            .unwrap_or(format!(
+                                "<unknown {} (satellite of {})>",
+                                body.metadata.body_type, name
+                            ))
+                    );
+                }
+            }
 
             Some(data)
         }

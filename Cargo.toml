@@ -4,12 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.15.0",  features=["jpeg"]}
+# bevy = { version = "0.15.0", features = ["dynamic_linking", "jpeg"] }
+bevy = { version = "0.15.0", features = ["jpeg"] }
 # bevy_dylib = { version = "0.14.0-rc.3"
 bevy_flycam = "0.15.0"
 bevy_mod_billboard = { git = "https://github.com/kulkalkul/bevy_mod_billboard", rev = "fe90b984c5d73bf6863daf90bc95831f27e0c072"}
 bevy_mod_imgui = "0.6.0"
+bevy_ui_anchor = "0.5.0"
+delegate = "0.13.2"
 imgui = "0.12.0"
+mint = "0.5.9"
 serde = "1.0.217"
 serde_json = "1.0.138"
 
@@ -18,7 +22,7 @@ git = "https://github.com/IyesGames/iyes_perf_ui"
 
 
 [profile.dev]
-opt-level = 1
+opt-level = 0
 
-# [profile.dev.package."*"]
-# opt-level = 3
+[profile.dev.package."*"]
+opt-level = 3
