@@ -33,56 +33,6 @@ fn performance_metrics_system(mut commands: Commands) {
     ));
 }
 
-pub trait UiContainer {
-    fn get_imgui(&self) -> &imgui::Ui;
-    fn get_gap(&self) -> f32;
-    fn get_width(&self) -> f32;
-    fn get_height(&self) -> f32;
-    fn get_border(&self) -> f32;
-    fn get_items(&self) -> &Vec<UiElement>;
-    fn get_items_mut(&mut self) -> &mut Vec<UiElement>;
-
-    fn button(
-        &mut self,
-        label: impl AsRef<str>,
-        size: [f32; 2],
-        f: impl Fn() + 'static,
-    ) -> &mut Self {
-        self.get_items_mut().push(UiElement {
-            width: size[0],
-            height: size[1],
-            item_type: UiElementType::Button(label.as_ref().to_string(), Box::new(f)),
-        });
-        self
-    }
-
-    fn build(&self) {
-        self.build();
-    }
-
-    fn build_debug(&self, debug: bool) {
-        self.build_debug(debug);
-    }
-}
-
-enum UiElementType {
-    Button(String, Box<dyn Fn()>),
-    Label(String),
-    InputFloat(String),
-    InputInt(String),
-}
-
-pub struct UiElement {
-    pub item_type: UiElementType,
-    pub width: f32,
-    pub height: f32,
-}
-
-pub struct Border {
-    pub color: [f32; 4],
-    pub thickness: f32,
-}
-
 // TODO util
 pub fn apply_button_color<'a>(
     ui: &'a imgui::Ui,
@@ -140,33 +90,4 @@ impl Color {
     pub const Input: [f32; 4] = Self::Button;
     pub const InputBorder: [f32; 4] = rgba([38.0, 38.0, 38.0, 1.0]);
     pub const Border: [f32; 4] = rgba([26.0, 26.0, 26.0, 1.0]);
-}
-
-#[macro_export]
-macro_rules! impl_uicontainer {
-    ($ty:ty) => {
-        impl UiContainer for $ty {
-            fn get_imgui(&self) -> &imgui::Ui {
-                self.imgui
-            }
-            fn get_gap(&self) -> f32 {
-                self.gap
-            }
-            fn get_width(&self) -> f32 {
-                self.width
-            }
-            fn get_height(&self) -> f32 {
-                self.height
-            }
-            fn get_border(&self) -> f32 {
-                self.border
-            }
-            fn get_items(&self) -> &Vec<UiElement> {
-                &self.items
-            }
-            fn get_items_mut(&mut self) -> &mut Vec<UiElement> {
-                &mut self.items
-            }
-        }
-    };
 }

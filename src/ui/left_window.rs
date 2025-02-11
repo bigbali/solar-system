@@ -5,7 +5,10 @@ use crate::simulation::body::*;
 
 use super::{
     apply_button_color, clear_button_color,
-    flex::{flex_row::FlexRow, FlexSpacing},
+    flex::{
+        flex_row::{Children, FlexRow, RootNode},
+        FlexSpacing,
+    },
     util::with_color_scheme,
 };
 
@@ -87,52 +90,58 @@ pub fn left_window_system(
                     }
                 }
 
-                let mut binding = FlexRow::new(ui);
-                let mut fr = binding
-                    .gap(8.0)
-                    .width(size[0])
-                    .height(600.0)
-                    .horizontal_spacing(unsafe { SPACING });
+                let mut root = RootNode::new(ui);
 
-                if { unsafe { FILL } } {
-                    fr = fr.fill([1.0, 0.0, 0.0, 1.0]);
-                }
+                root.add_child::<FlexRow>();
 
-                if { unsafe { BORDER } } {
-                    fr = fr.border(1.0);
-                }
+                root.build();
 
-                fr.button("hello", [120.0, 48.0], || println!("hello again xd"))
-                    .button("xd funny", [60.0, 48.0], || println!("xd funny"))
-                    .button("xd funny", [75.0, 48.0], || println!("xd funny"))
-                    .button("xd funny", [100.0, 48.0], || println!("xd funny"));
+                // let mut binding = FlexRow::new(ui);
+                // let mut fr = binding
+                //     .gap(8.0)
+                //     .width(size[0])
+                //     .height(600.0)
+                //     .horizontal_spacing(unsafe { SPACING });
 
-                if { unsafe { HAUTO } } {
-                    fr = fr.height_auto();
-                }
+                // if { unsafe { FILL } } {
+                //     fr = fr.fill([1.0, 0.0, 0.0, 1.0]);
+                // }
 
-                fr.build_debug(unsafe { DEBUG });
+                // if { unsafe { BORDER } } {
+                //     fr = fr.border(1.0);
+                // }
 
-                FlexRow::new(ui)
-                    .gap(4.0)
-                    .horizontal_spacing(FlexSpacing::End)
-                    .button("hello", [120.0, 48.0], || println!("hello again xd"))
-                    .button("xd funny", [60.0, 48.0], || println!("xd funny"))
-                    .build();
+                // fr.button("hello", [120.0, 48.0], || println!("hello again xd"))
+                //     .button("xd funny", [60.0, 48.0], || println!("xd funny"))
+                //     .button("xd funny", [75.0, 48.0], || println!("xd funny"))
+                //     .button("xd funny", [100.0, 48.0], || println!("xd funny"));
 
-                FlexRow::new(ui)
-                    .gap(4.0)
-                    .horizontal_spacing(FlexSpacing::Between)
-                    .button("hello", [120.0, 48.0], || println!("hello again xd"))
-                    .button("xd funny", [60.0, 48.0], || println!("xd funny"))
-                    .build();
+                // if { unsafe { HAUTO } } {
+                //     fr = fr.height_auto();
+                // }
 
-                FlexRow::new(ui)
-                    .gap(4.0)
-                    .horizontal_spacing(FlexSpacing::Stretch)
-                    .button("hello", [120.0, 48.0], || println!("hello again xd"))
-                    .button("xd funny", [60.0, 48.0], || println!("xd funny"))
-                    .build();
+                // fr.build_debug(unsafe { DEBUG });
+
+                // FlexRow::new(ui)
+                //     .gap(4.0)
+                //     .horizontal_spacing(FlexSpacing::End)
+                //     .button("hello", [120.0, 48.0], || println!("hello again xd"))
+                //     .button("xd funny", [60.0, 48.0], || println!("xd funny"))
+                //     .build();
+
+                // FlexRow::new(ui)
+                //     .gap(4.0)
+                //     .horizontal_spacing(FlexSpacing::Between)
+                //     .button("hello", [120.0, 48.0], || println!("hello again xd"))
+                //     .button("xd funny", [60.0, 48.0], || println!("xd funny"))
+                //     .build();
+
+                // FlexRow::new(ui)
+                //     .gap(4.0)
+                //     .horizontal_spacing(FlexSpacing::Stretch)
+                //     .button("hello", [120.0, 48.0], || println!("hello again xd"))
+                //     .button("xd funny", [60.0, 48.0], || println!("xd funny"))
+                //     .build();
 
                 let mut camera_transform = camera.single_mut();
 
