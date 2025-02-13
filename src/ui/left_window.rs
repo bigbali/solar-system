@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use bevy::prelude::*;
 use bevy_mod_imgui::ImguiContext;
 
@@ -6,7 +8,8 @@ use crate::simulation::body::*;
 use super::{
     apply_button_color, clear_button_color,
     flex::{
-        flex_row::{Children, FlexRow, RootNode},
+        flex1::{self, Children},
+        flex2::{self, FlexRow},
         FlexSpacing,
     },
     util::with_color_scheme,
@@ -90,11 +93,45 @@ pub fn left_window_system(
                     }
                 }
 
-                let mut root = RootNode::new(ui);
+                // let mut root = RootNode::new(ui);
 
-                root.add_child::<FlexRow>();
+                // root.add_child::<FlexRow>();
 
-                root.build();
+                // let mut root = flex1::RootNode::new(ui);
+
+                // let mut binding = root.add_child::<FlexRow>();
+                // let mut x = binding.get_mut().;
+
+                // let root = flex2::RootNode::new(Rc::new(RefCell::new(ui)));
+
+                // let rc_ui = Rc::new(RefCell::new(&mut *ui));
+
+                // Create RootNode
+                let mut root = flex2::RootNode::new();
+
+                let x = root
+                    .flex_row()
+                    .horizontal_spacing(unsafe { SPACING })
+                    .width(600.0)
+                    .height(400.0)
+                    .border(1.0)
+                    .fill([1.0, 0.0, 0.0, 1.0]);
+
+                x.flex_row()
+                    .width(300.0)
+                    .height(200.0)
+                    .border(3.0)
+                    .fill([0.0, 0.0, 1.0, 1.0]);
+
+                x.flex_row()
+                    .width(100.0)
+                    .height(100.0)
+                    .border(5.0)
+                    .fill([0.0, 1.0, 0.0, 1.0]);
+
+                root.build(ui);
+
+                // root.build();
 
                 // let mut binding = FlexRow::new(ui);
                 // let mut fr = binding
