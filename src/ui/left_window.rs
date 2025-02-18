@@ -149,8 +149,9 @@ pub fn left_window_system(
                     .flex_row()
                     .align_axis(unsafe { ALIGN_AXIS })
                     .align_cross_axis(unsafe { ALIGN_CROSS_AXIS })
+                    .flex_direction(flex2::FlexDirection::Column)
                     .width(600.0)
-                    .height(300.0)
+                    .height(800.0)
                     .border(1.0)
                     .gap(8.0)
                     .fill([1.0, 0.0, 0.0, 1.0]);

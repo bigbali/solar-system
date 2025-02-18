@@ -83,165 +83,10 @@ impl UiNode for FlexRow {
     }
 
     fn build(&self, context: &imgui::Ui, draw_list: &DrawListMut, cascading_override: Override) {
-        // context.group(|| {
         match self.direction {
             FlexDirection::Row => self.build_row(context, draw_list, cascading_override),
-            FlexDirection::Column => (),
+            FlexDirection::Column => self.build_column(context, draw_list, cascading_override),
         }
-        // let max_width = match cascading_override.custom_rendering {
-        //     true => cascading_override.width.unwrap_or(self.width),
-        //     false => self
-        //         .fill_parent
-        //         .then(|| context.content_region_avail()[0])
-        //         .unwrap_or(self.width),
-        // };
-
-        // let max_height = match cascading_override.custom_rendering {
-        //     true => cascading_override.height.unwrap_or(self.height),
-        //     false => self
-        //         .fill_parent
-        //         .then(|| context.content_region_avail()[1])
-        //         .unwrap_or(self.height),
-        // };
-
-        // let (axis_size, cross_axis_size) = match self.direction {
-        //     FlexDirection::Row => (max_width, max_height),
-        //     FlexDirection::Column => (max_height, max_width),
-        // };
-
-        // let halfborder = self.border / 2.0;
-
-        // let items_width = self.children.iter().map(|i| i.get_width()).sum::<f32>();
-        // let items_height = self.children.iter().map(|i| i.get_height()).sum::<f32>();
-
-        // let (items_axis_size, items_cross_axis_size) = match self.direction {
-        //     FlexDirection::Row => (items_width, items_height),
-        //     FlexDirection::Column => (items_height, items_width),
-        // };
-
-        // let available_space_for_gap = axis_size - items_axis_size - self.border * 2.0;
-
-        // let cursor = context.cursor_screen_pos();
-
-        // // let starting_position = [
-        // //     (cursor[0] + halfborder).floor(),
-        // //     (cursor[1] + halfborder).floor(),
-        // // ];
-        // let starting_position = match self.cross_axis_align_items {
-        //     FlexCrossAxisAlign::Start => [
-        //         (cursor[0] + halfborder).floor(),
-        //         (cursor[1] + halfborder).floor(),
-        //     ],
-        //     FlexCrossAxisAlign::End => match self.direction {
-        //         FlexDirection::Row => [
-        //             (cursor[0] + halfborder).floor(),
-        //             cursor[1] + available_space_for_gap - self.gap * gap_division,
-        //         ],
-        //         FlexDirection::Column => [
-        //             cursor[1] + available_space_for_gap - self.gap * gap_division,
-        //             (cursor[1] + halfborder).floor(),
-        //         ],
-        //     },
-        //     FlexCrossAxisAlign::Center => [
-        //         (cursor[0] + (axis_size / 2.0).floor()).floor(),
-        //         (cursor[1] + (axis_size / 2.0).floor()).floor(),
-        //     ],
-        // };
-        // let size = [max_width, max_height];
-        // let ending_position = [
-        //     (starting_position[0] + size[0] - halfborder).floor(),
-        //     (starting_position[1] + size[1] - halfborder).floor(),
-        // ];
-
-        // if let Some(fill) = self.fill {
-        //     draw_list
-        //         .add_rect(starting_position, ending_position, fill)
-        //         .filled(true)
-        //         .build();
-        // }
-
-        // if self.border > 0.0 {
-        //     draw_list
-        //         .add_rect(starting_position, ending_position, [1.0, 1.0, 1.0, 1.0])
-        //         .thickness(self.border)
-        //         .build();
-        // }
-
-        // let number_of_children = self.children.len();
-
-        // if number_of_children > 0 {
-        //     let number_of_children = self.children.len();
-        //     let gap_division = (number_of_children - 1).max(1) as f32; // make sure that we don't divide by 0
-
-        //     let calculated_gap =
-        //         ((available_space_for_gap - halfborder) / gap_division).round();
-
-        //     for (i, child) in self.children.iter().enumerate() {
-        //         if i == 0 {
-        //             match self.axis_align_items {
-        //                 FlexAxisAlign::End => {
-        //                     context.set_cursor_screen_pos([
-        //                         starting_position[0] + available_space_for_gap
-        //                             - self.gap * gap_division,
-        //                         starting_position[1],
-        //                     ]);
-        //                 }
-        //                 _ => (),
-        //             }
-        //         } else {
-        //             match self.axis_align_items {
-        //                 FlexAxisAlign::Start => {
-        //                     context.same_line_with_spacing(0.0, self.gap);
-        //                 }
-        //                 FlexAxisAlign::End => {
-        //                     context.same_line_with_spacing(0.0, self.gap);
-        //                 }
-        //                 FlexAxisAlign::Between => {
-        //                     context.same_line_with_spacing(0.0, calculated_gap);
-        //                 }
-        //                 FlexAxisAlign::Stretch => context.same_line_with_spacing(0.0, self.gap),
-        //             }
-        //         }
-
-        //         let width_override: Option<f32> = match self.direction {
-        //             FlexDirection::Row => match self.axis_align_items {
-        //                 FlexAxisAlign::Stretch => Some(
-        //                     (max_width - (self.gap * gap_division) - self.border * 2.0)
-        //                         / number_of_children as f32,
-        //                 ),
-        //                 _ => None,
-        //             },
-        //             _ => None,
-        //         };
-
-        //         let height_override: Option<f32> = match self.direction {
-        //             FlexDirection::Column => match self.axis_align_items {
-        //                 FlexAxisAlign::Stretch => Some(
-        //                     (max_height - (self.gap * gap_division) - self.border * 2.0)
-        //                         / number_of_children as f32,
-        //                 ),
-        //                 _ => None,
-        //             },
-        //             _ => None,
-        //         };
-
-        //         child.build(
-        //             context,
-        //             &draw_list,
-        //             Override {
-        //                 width: width_override,
-        //                 height: height_override,
-        //                 custom_rendering: true,
-        //             },
-        //         );
-        //     }
-        // }
-
-        // match cascading_override.custom_rendering {
-        //     true => context.set_cursor_screen_pos([ending_position[0], starting_position[1]]),
-        //     false => context.set_cursor_screen_pos([ending_position[0], ending_position[1]]),
-        // }
-        // });
     }
 }
 
@@ -253,6 +98,11 @@ impl FlexRow {
 
     pub fn align_cross_axis(&mut self, spacing: FlexCrossAxisAlign) -> &mut Self {
         self.cross_axis_align_items = spacing;
+        self
+    }
+
+    pub fn flex_direction(&mut self, direction: FlexDirection) -> &mut Self {
+        self.direction = direction;
         self
     }
 
@@ -447,6 +297,142 @@ impl FlexRow {
 
         match cascading_override.custom_rendering {
             true => context.set_cursor_screen_pos([ending_position[0], starting_position[1]]),
+            false => context.set_cursor_screen_pos([ending_position[0], ending_position[1]]),
+        }
+    }
+
+    fn build_column(
+        &self,
+        context: &imgui::Ui,
+        draw_list: &DrawListMut,
+        cascading_override: Override,
+    ) {
+        let max_width = match cascading_override.custom_rendering {
+            true => cascading_override.width.unwrap_or(self.width),
+            false => self
+                .fill_parent
+                .then(|| context.content_region_avail()[0])
+                .unwrap_or(self.width),
+        };
+
+        let max_height = match cascading_override.custom_rendering {
+            true => cascading_override.height.unwrap_or(self.height),
+            false => self
+                .fill_parent
+                .then(|| context.content_region_avail()[1])
+                .unwrap_or(self.height),
+        };
+
+        let halfborder = self.border / 2.0;
+
+        let items_height = self.children.iter().map(|i| i.get_height()).sum::<f32>();
+
+        let vertical_empty_space = max_height - items_height - self.border * 2.0;
+
+        let size = [max_width, max_height];
+
+        let cursor = context.cursor_screen_pos();
+        let starting_position = [
+            (cursor[0] + halfborder).floor(),
+            (cursor[1] + halfborder).floor(),
+        ];
+        let ending_position = [
+            (starting_position[0] + size[0] - halfborder).floor(),
+            (starting_position[1] + size[1] - halfborder).floor(),
+        ];
+
+        if let Some(fill) = self.fill {
+            draw_list
+                .add_rect(starting_position, ending_position, fill)
+                .filled(true)
+                .build();
+        }
+
+        if self.border > 0.0 {
+            draw_list
+                .add_rect(starting_position, ending_position, [1.0, 1.0, 1.0, 1.0])
+                .thickness(self.border)
+                .build();
+        }
+
+        let number_of_children = self.children.len();
+
+        if number_of_children > 0 {
+            let number_of_children = self.children.len();
+            let gap_division = (number_of_children - 1).max(1) as f32; // make sure that we don't divide by 0
+
+            let calculated_gap = ((vertical_empty_space - halfborder) / gap_division).round();
+
+            for (i, child) in self.children.iter().enumerate() {
+                let horizontal_empty_space = max_width - child.get_width() - self.border;
+
+                let cross_axis_adjusted_start = match self.cross_axis_align_items {
+                    FlexCrossAxisAlign::Start => starting_position[0],
+                    FlexCrossAxisAlign::End => starting_position[0] + horizontal_empty_space,
+                    FlexCrossAxisAlign::Center => {
+                        starting_position[0] + (max_width / 2.0 - child.get_width() / 2.0)
+                    }
+                    FlexCrossAxisAlign::Stretch => starting_position[0],
+                };
+
+                if i == 0 {
+                    match self.axis_align_items {
+                        FlexAxisAlign::End => {
+                            context.set_cursor_screen_pos([
+                                cross_axis_adjusted_start,
+                                starting_position[1] + vertical_empty_space
+                                    - self.gap * gap_division,
+                            ]);
+                        }
+                        _ => context.set_cursor_screen_pos([
+                            cross_axis_adjusted_start,
+                            starting_position[1],
+                        ]),
+                    }
+                } else {
+                    match self.axis_align_items {
+                        FlexAxisAlign::Between => {
+                            context.set_cursor_screen_pos([
+                                cross_axis_adjusted_start,
+                                starting_position[1]
+                                    + calculated_gap
+                                    + self.children[i - 1].get_height(),
+                            ]);
+                        }
+                        _ => context.set_cursor_screen_pos([
+                            cross_axis_adjusted_start,
+                            starting_position[1] + self.gap + self.children[i - 1].get_height(),
+                        ]),
+                    }
+                }
+
+                let width_override: Option<f32> = match self.cross_axis_align_items {
+                    FlexCrossAxisAlign::Stretch => Some(
+                        (max_width - (self.gap * gap_division) - self.border * 2.0)
+                            / number_of_children as f32,
+                    ),
+                    _ => None,
+                };
+
+                let height_override: Option<f32> = match self.axis_align_items {
+                    FlexAxisAlign::Stretch => Some(max_height - self.border),
+                    _ => None,
+                };
+
+                child.build(
+                    context,
+                    &draw_list,
+                    Override {
+                        width: width_override,
+                        height: height_override,
+                        custom_rendering: true,
+                    },
+                );
+            }
+        }
+
+        match cascading_override.custom_rendering {
+            true => context.set_cursor_screen_pos([starting_position[0], ending_position[1]]),
             false => context.set_cursor_screen_pos([ending_position[0], ending_position[1]]),
         }
     }
