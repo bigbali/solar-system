@@ -4,7 +4,7 @@ pub mod flex_row;
 pub mod flex_row_test;
 
 #[derive(Debug, Clone, Copy)]
-pub enum FlexAlign {
+pub enum FlexAxisAlign {
     Start,
     End,
     Between,

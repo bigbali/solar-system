@@ -9,15 +9,16 @@ use super::{
     apply_button_color, clear_button_color,
     flex::{
         flex1::{self, Children},
-        flex2::{self, FlexRow},
-        FlexAlign,
+        flex2::{self, FlexCrossAxisAlign, FlexRow},
+        FlexAxisAlign,
     },
     util::with_color_scheme,
 };
 
-static mut COMBO_SELECT: usize = 0;
-static mut ALIGN_AXIS: FlexAlign = FlexAlign::Start;
-static mut ALIGN_CROSS_AXIS: FlexAlign = FlexAlign::Start;
+static mut ALIGN_AXIS_SELECT: usize = 0;
+static mut ALIGN_CROSS_AXIS_SELECT: usize = 0;
+static mut ALIGN_AXIS: FlexAxisAlign = FlexAxisAlign::Start;
+static mut ALIGN_CROSS_AXIS: FlexCrossAxisAlign = FlexCrossAxisAlign::Start;
 static mut DEBUG: bool = false;
 static mut FILL: bool = false;
 static mut BORDER: bool = true;
@@ -69,29 +70,60 @@ pub fn left_window_system(
                 let items = vec!["Left", "Right", "Between", "Stretch"];
                 if let Some(cb) = ui.begin_combo(
                     "##Combo",
-                    format!("Selected item: {}", items[unsafe { COMBO_SELECT }]),
+                    format!("Axis: {}", items[unsafe { ALIGN_AXIS_SELECT }]),
                 ) {
                     for (i, cur) in items.iter().enumerate() {
                         unsafe {
-                            if items[COMBO_SELECT] == *cur {
+                            if items[ALIGN_AXIS_SELECT] == *cur {
                                 // Auto-scroll to selected item
                                 ui.set_item_default_focus();
                             }
                             // Create a "selectable"
                             let clicked = ui
                                 .selectable_config(cur)
-                                .selected(items[COMBO_SELECT] == *cur)
+                                .selected(items[ALIGN_AXIS_SELECT] == *cur)
                                 .build();
                             // When item is clicked, store it
                             if clicked {
-                                COMBO_SELECT = i;
+                                ALIGN_AXIS_SELECT = i;
                             }
 
-                            ALIGN_AXIS = match items[COMBO_SELECT] {
-                                "Right" => FlexAlign::End,
-                                "Between" => FlexAlign::Between,
-                                "Stretch" => FlexAlign::Stretch,
-                                _ => FlexAlign::Start,
+                            ALIGN_AXIS = match items[ALIGN_AXIS_SELECT] {
+                                "Right" => FlexAxisAlign::End,
+                                "Between" => FlexAxisAlign::Between,
+                                "Stretch" => FlexAxisAlign::Stretch,
+                                _ => FlexAxisAlign::Start,
+                            }
+                        }
+                    }
+                }
+                let items2 = vec!["Start", "End", "Center", "Stretch"];
+                if let Some(cb) = ui.begin_combo(
+                    "##Combo2",
+                    format!("Cross axis: {}", items2[unsafe { ALIGN_CROSS_AXIS_SELECT }]),
+                ) {
+                    for (i, cur) in items2.iter().enumerate() {
+                        unsafe {
+                            if items[ALIGN_CROSS_AXIS_SELECT] == *cur {
+                                // Auto-scroll to selected item
+                                ui.set_item_default_focus();
+                            }
+                            // Create a "selectable"
+                            let clicked = ui
+                                .selectable_config(cur)
+                                .selected(items2[ALIGN_CROSS_AXIS_SELECT] == *cur)
+                                .build();
+                            // When item is clicked, store it
+                            if clicked {
+                                ALIGN_CROSS_AXIS_SELECT = i;
+                            }
+
+                            ALIGN_CROSS_AXIS = match items2[ALIGN_CROSS_AXIS_SELECT] {
+                                "Start" => FlexCrossAxisAlign::Start,
+                                "End" => FlexCrossAxisAlign::End,
+                                "Center" => FlexCrossAxisAlign::Center,
+                                "Stretch" => FlexCrossAxisAlign::Stretch,
+                                _ => FlexCrossAxisAlign::Start,
                             }
                         }
                     }
