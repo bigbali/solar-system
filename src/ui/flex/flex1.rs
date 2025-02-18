@@ -1,4 +1,4 @@
-use super::FlexSpacing;
+use super::FlexAlign;
 use imgui::DrawListMut;
 use std::{cell::RefCell, rc::Rc};
 
@@ -64,8 +64,8 @@ impl<'ui, 'a> Children<'a> for RootNode<'ui, 'a> {
 }
 
 pub struct FlexRow<'a> {
-    horizontal_spacing: FlexSpacing,
-    vertical_spacing: FlexSpacing,
+    horizontal_spacing: FlexAlign,
+    vertical_spacing: FlexAlign,
     gap: f32,
     width: f32,
     height: f32,
@@ -85,8 +85,8 @@ impl<'a> UiNode for FlexRow<'a> {
 
     fn new() -> Self {
         Self {
-            horizontal_spacing: FlexSpacing::Start,
-            vertical_spacing: FlexSpacing::Start,
+            horizontal_spacing: FlexAlign::Start,
+            vertical_spacing: FlexAlign::Start,
             gap: 0.0,
             width: 320.0,
             height: 60.0,
@@ -116,7 +116,7 @@ impl<'a> UiNode for FlexRow<'a> {
             (available_space_for_gap - self.border * 2.0) / (self.items.len() - 1) as f32;
 
         let width_override: Option<f32> = match self.horizontal_spacing {
-            FlexSpacing::Stretch => Some(
+            FlexAlign::Stretch => Some(
                 (container_available_width
                     - (self.gap * (self.items.len() as f32 - 1.0)) as f32
                     - self.border * 2.0)
@@ -154,7 +154,7 @@ impl<'a> UiNode for FlexRow<'a> {
             for (i, item) in self.items.iter().enumerate() {
                 if i == 0 {
                     match self.horizontal_spacing {
-                        FlexSpacing::End => {
+                        FlexAlign::End => {
                             context.set_cursor_screen_pos([
                                 p0[0] + available_space_for_gap
                                     - self.gap * (self.items.len() - 1) as f32
@@ -166,16 +166,16 @@ impl<'a> UiNode for FlexRow<'a> {
                     }
                 } else {
                     match self.horizontal_spacing {
-                        FlexSpacing::Start => {
+                        FlexAlign::Start => {
                             context.same_line_with_spacing(0.0, self.gap);
                         }
-                        FlexSpacing::End => {
+                        FlexAlign::End => {
                             context.same_line_with_spacing(0.0, self.gap);
                         }
-                        FlexSpacing::Between => {
+                        FlexAlign::Between => {
                             context.same_line_with_spacing(0.0, calculated_gap);
                         }
-                        FlexSpacing::Stretch => context.same_line_with_spacing(0.0, self.gap),
+                        FlexAlign::Stretch => context.same_line_with_spacing(0.0, self.gap),
                     }
                 }
 
@@ -208,12 +208,12 @@ impl<'a> Children<'a> for FlexRow<'a> {
 }
 
 impl<'a> FlexRow<'a> {
-    pub fn horizontal_spacing(&mut self, spacing: FlexSpacing) -> &mut Self {
+    pub fn horizontal_spacing(&mut self, spacing: FlexAlign) -> &mut Self {
         self.horizontal_spacing = spacing;
         self
     }
 
-    pub fn vertical_spacing(&mut self, spacing: FlexSpacing) -> &mut Self {
+    pub fn vertical_spacing(&mut self, spacing: FlexAlign) -> &mut Self {
         self.vertical_spacing = spacing;
         self
     }

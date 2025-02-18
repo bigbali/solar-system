@@ -4,11 +4,17 @@ use bevy::log::tracing_subscriber::fmt::format;
 use delegate::delegate;
 use imgui::DrawListMut;
 
-use super::FlexSpacing;
+use super::FlexAlign;
+
+pub enum FlexDirection {
+    Row,
+    Column,
+}
 
 pub trait UiNode {
     fn get_width(&self) -> f32;
     fn get_height(&self) -> f32;
+    fn get_border(&self) -> f32;
 
     // fn new() -> Self
     // where
@@ -26,12 +32,14 @@ pub struct Override {
 
 // **Different UI Components**
 pub struct FlexRow {
-    horizontal_spacing: FlexSpacing,
-    vertical_spacing: FlexSpacing,
+    axis_align_items: FlexAlign,
+    cross_axis_align_items: FlexAlign,
+    direction: FlexDirection,
     gap: f32,
     width: f32,
     height: f32,
     border: f32,
+    fill_parent: bool,
     fill: Option<[f32; 4]>,
     children: Vec<UiElement>,
 }
@@ -39,12 +47,14 @@ pub struct FlexRow {
 impl Default for FlexRow {
     fn default() -> Self {
         Self {
-            horizontal_spacing: FlexSpacing::Start,
-            vertical_spacing: FlexSpacing::Start,
+            axis_align_items: FlexAlign::Start,
+            cross_axis_align_items: FlexAlign::Start,
+            direction: FlexDirection::Row,
             gap: 0.0,
             width: 320.0,
             height: 60.0,
             border: 0.0,
+            fill_parent: false,
             fill: None,
             children: Vec::new(),
         }
@@ -55,47 +65,41 @@ impl UiNode for FlexRow {
     fn get_width(&self) -> f32 {
         self.width
     }
+
     fn get_height(&self) -> f32 {
         self.height
     }
-    // fn build(
-    //     &self,
-    //     context: &imgui::Ui,
-    //     draw_list: &DrawListMut,
-    //     cascading_override: Option<Override>,
-    // ) {
-    //     println!("Rendering FlexRow");
-    // }
+
+    fn get_border(&self) -> f32 {
+        self.border
+    }
 
     fn build(&self, context: &imgui::Ui, draw_list: &DrawListMut, cascading_override: Override) {
-        // context.new_line();
         context.group(|| {
-            let container_available_width = match cascading_override.custom_rendering {
-                true => cascading_override
-                    .width
-                    .unwrap_or(self.width - self.border * 4.0),
-                false => context.window_content_region_max()[0],
+            let max_width = match cascading_override.custom_rendering {
+                true => cascading_override.width.unwrap_or(self.width),
+                false => self
+                    .fill_parent
+                    .then(|| context.content_region_avail()[0])
+                    .unwrap_or(self.width),
             };
 
-            let container_available_height =
-                context.window_content_region_max()[1] - self.border * 4.0;
+            let halfborder = self.border / 2.0;
 
             let items_width = self.children.iter().map(|i| i.get_width()).sum::<f32>();
 
-            let available_space_for_gap = container_available_width - items_width;
+            let available_space_for_gap = max_width - items_width - self.border * 2.0;
 
-            let starting_position = context.cursor_screen_pos();
-            let size = [container_available_width, self.height];
-            let ending_position = [
-                starting_position[0] + size[0],
-                starting_position[1] + size[1],
+            let cursor = context.cursor_screen_pos();
+            let starting_position = [
+                (cursor[0] + halfborder).floor(),
+                (cursor[1] + halfborder).floor(),
             ];
-
-            // context // TODO add padding
-            //     .set_cursor_screen_pos([
-            //         starting_position[0] + self.border,
-            //         starting_position[1] + self.border,
-            //     ]);
+            let size = [max_width, self.height];
+            let ending_position = [
+                (starting_position[0] + size[0] - halfborder).floor(),
+                (starting_position[1] + size[1] - halfborder).floor(),
+            ];
 
             if let Some(fill) = self.fill {
                 draw_list
@@ -111,66 +115,52 @@ impl UiNode for FlexRow {
                     .build();
             }
 
-            // context.text(format!("start: {:?}", starting_position));
-            // context.text(format!("end: {:?}", ending_position));
-            // context.text(format!("cascading_override: {:#?}", cascading_override));
-
-            // context // TODO add padding
-            //     .set_cursor_screen_pos([starting_position[0], starting_position[1]]);
-
             let number_of_children = self.children.len();
 
             if number_of_children > 0 {
                 let gap_division = (number_of_children - 1).max(1) as f32; // make sure that we don't divide by 0
 
-                let calculated_gap = (available_space_for_gap - self.border * 2.0) / gap_division;
-
-                let width_override: Option<f32> = match self.horizontal_spacing {
-                    FlexSpacing::Stretch => Some(
-                        (container_available_width - (self.gap * gap_division) - self.border * 2.0)
-                            / number_of_children as f32,
-                    ),
-                    _ => None,
-                };
+                let calculated_gap =
+                    ((available_space_for_gap - halfborder) / gap_division).round();
 
                 for (i, child) in self.children.iter().enumerate() {
                     if i == 0 {
-                        match self.horizontal_spacing {
-                            FlexSpacing::End => {
+                        match self.axis_align_items {
+                            FlexAlign::End => {
                                 context.set_cursor_screen_pos([
                                     starting_position[0] + available_space_for_gap
-                                        - self.gap * gap_division
-                                        - self.border,
-                                    starting_position[1] + self.border,
+                                        - self.gap * gap_division,
+                                    starting_position[1],
                                 ]);
                             }
                             _ => (),
                         }
                     } else {
-                        match self.horizontal_spacing {
-                            FlexSpacing::Start => {
+                        match self.axis_align_items {
+                            FlexAlign::Start => {
                                 context.same_line_with_spacing(0.0, self.gap);
                             }
-                            FlexSpacing::End => {
+                            FlexAlign::End => {
                                 context.same_line_with_spacing(0.0, self.gap);
                             }
-                            FlexSpacing::Between => {
+                            FlexAlign::Between => {
                                 context.same_line_with_spacing(0.0, calculated_gap);
                             }
-                            FlexSpacing::Stretch => context.same_line_with_spacing(0.0, self.gap),
+                            FlexAlign::Stretch => context.same_line_with_spacing(0.0, self.gap),
                         }
                     }
-
-                    let _width_override = match width_override {
-                        Some(width_override) => Some(width_override),
-                        None => None,
-                    };
 
                     child.build(
                         context,
                         &draw_list,
                         Override {
-                            width: _width_override,
+                            width: match self.axis_align_items {
+                                FlexAlign::Stretch => Some(
+                                    (max_width - (self.gap * gap_division) - self.border * 2.0)
+                                        / number_of_children as f32,
+                                ),
+                                _ => None,
+                            },
                             height: None,
                             custom_rendering: true,
                         },
@@ -182,20 +172,18 @@ impl UiNode for FlexRow {
                 true => context.set_cursor_screen_pos([ending_position[0], starting_position[1]]),
                 false => context.set_cursor_screen_pos([ending_position[0], ending_position[1]]),
             }
-
-            // context.set_cursor_screen_pos([ending_position[0], ending_position[1]]);
         });
     }
 }
 
 impl FlexRow {
-    pub fn horizontal_spacing(&mut self, spacing: FlexSpacing) -> &mut Self {
-        self.horizontal_spacing = spacing;
+    pub fn align_axis(&mut self, spacing: FlexAlign) -> &mut Self {
+        self.axis_align_items = spacing;
         self
     }
 
-    pub fn vertical_spacing(&mut self, spacing: FlexSpacing) -> &mut Self {
-        self.vertical_spacing = spacing;
+    pub fn align_cross_axis(&mut self, spacing: FlexAlign) -> &mut Self {
+        self.cross_axis_align_items = spacing;
         self
     }
 
@@ -231,6 +219,11 @@ impl FlexRow {
         self
     }
 
+    pub fn fill_parent(&mut self, fill_parent: bool) -> &mut Self {
+        self.fill_parent = fill_parent;
+        self
+    }
+
     pub fn fill(&mut self, fill: [f32; 4]) -> &mut Self {
         self.fill = Some(fill);
         self
@@ -250,6 +243,7 @@ impl FlexRow {
 pub struct Button {
     width: f32,
     height: f32,
+    border: f32,
     label: String,
 }
 
@@ -257,9 +251,15 @@ impl UiNode for Button {
     fn get_width(&self) -> f32 {
         self.width
     }
+
     fn get_height(&self) -> f32 {
         self.height
     }
+
+    fn get_border(&self) -> f32 {
+        self.border
+    }
+
     fn build(&self, context: &imgui::Ui, draw_list: &DrawListMut, cascading_override: Override) {
         println!("Rendering Button: {}", self.label);
     }
@@ -300,6 +300,7 @@ impl UiNode for UiElement {
         } {
             fn get_width(&self) -> f32;
             fn get_height(&self) -> f32;
+            fn get_border(&self) -> f32;
             fn build(&self, context: &imgui::Ui, draw_list: &DrawListMut, cascading_override: Override);
         }
     }

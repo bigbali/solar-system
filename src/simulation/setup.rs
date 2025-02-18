@@ -16,11 +16,12 @@ pub fn initialize_bodies_system(
     let sun_radius = 0.00465047;
     let sun_body = Body {
         data: BodyData {
-            position: Vec3::new(
-                0.00450250878464055477,
-                0.00076707642709100705,
-                0.00026605791776697764,
-            ),
+            // position: Vec3::new(
+            //     0.00450250878464055477,
+            //     0.00076707642709100705,
+            //     0.00026605791776697764,
+            // ),
+            position: Vec3::new(0.0, 0.0, 0.0),
             velocity: Vec3::new(
                 -0.00000035174953607552,
                 0.00000517762640983341,

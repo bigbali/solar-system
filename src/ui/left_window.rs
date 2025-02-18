@@ -10,13 +10,14 @@ use super::{
     flex::{
         flex1::{self, Children},
         flex2::{self, FlexRow},
-        FlexSpacing,
+        FlexAlign,
     },
     util::with_color_scheme,
 };
 
 static mut COMBO_SELECT: usize = 0;
-static mut SPACING: FlexSpacing = FlexSpacing::Start;
+static mut ALIGN_AXIS: FlexAlign = FlexAlign::Start;
+static mut ALIGN_CROSS_AXIS: FlexAlign = FlexAlign::Start;
 static mut DEBUG: bool = false;
 static mut FILL: bool = false;
 static mut BORDER: bool = true;
@@ -47,6 +48,9 @@ pub fn left_window_system(
         bevy_window.resolution.physical_height() as f32,
     ];
 
+    let x: Vec<imgui::StyleStackToken> =
+        vec![ui.push_style_var(imgui::StyleVar::WindowPadding([8.0, 30.0]))];
+
     with_color_scheme(ui, || {
         action_window
             .size(size, imgui::Condition::Always)
@@ -55,7 +59,7 @@ pub fn left_window_system(
                 ui.separator();
                 ui.text("Bodies");
                 ui.separator();
-                ui.dummy([0.0, 4.0]);
+                // ui.dummy([0.0, 4.0]);
 
                 ui.checkbox("Fill", unsafe { &mut FILL });
                 ui.checkbox("Debug", unsafe { &mut DEBUG });
@@ -83,11 +87,11 @@ pub fn left_window_system(
                                 COMBO_SELECT = i;
                             }
 
-                            SPACING = match items[COMBO_SELECT] {
-                                "Right" => FlexSpacing::End,
-                                "Between" => FlexSpacing::Between,
-                                "Stretch" => FlexSpacing::Stretch,
-                                _ => FlexSpacing::Start,
+                            ALIGN_AXIS = match items[COMBO_SELECT] {
+                                "Right" => FlexAlign::End,
+                                "Between" => FlexAlign::Between,
+                                "Stretch" => FlexAlign::Stretch,
+                                _ => FlexAlign::Start,
                             }
                         }
                     }
@@ -111,10 +115,12 @@ pub fn left_window_system(
 
                 let x = root
                     .flex_row()
-                    .horizontal_spacing(unsafe { SPACING })
+                    .align_axis(unsafe { ALIGN_AXIS })
+                    .align_cross_axis(unsafe { ALIGN_CROSS_AXIS })
                     .width(600.0)
-                    .height(400.0)
+                    .height(300.0)
                     .border(1.0)
+                    .gap(8.0)
                     .fill([1.0, 0.0, 0.0, 1.0]);
 
                 x.flex_row()
@@ -130,6 +136,35 @@ pub fn left_window_system(
                     .fill([0.0, 1.0, 0.0, 1.0]);
 
                 root.build(ui);
+
+                ui.dummy([0.0, 16.0]);
+
+                let mut root2 = flex2::RootNode::new();
+
+                let y = root2
+                    .flex_row()
+                    .align_axis(unsafe { ALIGN_AXIS })
+                    .align_cross_axis(unsafe { ALIGN_CROSS_AXIS })
+                    .width(600.0)
+                    .height(300.0)
+                    .border(0.0)
+                    .gap(8.0)
+                    .fill_parent(true)
+                    .fill([1.0, 0.0, 0.0, 1.0]);
+
+                y.flex_row()
+                    .width(300.0)
+                    .height(200.0)
+                    .border(3.0)
+                    .fill([0.0, 0.0, 1.0, 1.0]);
+
+                y.flex_row()
+                    .width(100.0)
+                    .height(100.0)
+                    .border(5.0)
+                    .fill([0.0, 1.0, 0.0, 1.0]);
+
+                root2.build(ui);
 
                 // root.build();
 
@@ -347,4 +382,8 @@ pub fn left_window_system(
                 ui.text(format!("Time Passed: {:.2} days", elapsed_time.0));
             });
     });
+
+    for token in x {
+        token.pop();
+    }
 }

@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use flex::FlexSpacing;
+use flex::FlexAlign;
 use left_window::left_window_system;
 use right_window::right_window_system;
 use spawn_ui::spawn_window_system;

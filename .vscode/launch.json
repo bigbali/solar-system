@@ -1,0 +1,51 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug (CodeLLDB - GNU)",
+            "cargo": {
+                "args": ["build", "--target=x86_64-pc-windows-gnu"],
+                "filter": {
+                    "name": "solar-system",
+                    "kind": "bin"
+                },
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug (CodeLLDB - MSVC)",
+            "cargo": {
+                "args": ["build", "--bin=solar-system", "--package=solar-system"],
+                "filter": {
+                    "name": "solar-system",
+                    "kind": "bin"
+                },
+                "env": {
+                    "CARGO_MANIFEST_DIR": "${workspaceFolder}",
+                    "PATH": "${env:USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin;${workspaceFolder}/target/debug/deps;${env:PATH}"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+        },
+        {
+            "type": "cppvsdbg",
+            "request": "launch",
+            "name": "Debug (MSVC)",
+            "program": "${workspaceFolder}/target/debug/${workspaceFolderBasename}.exe",
+            "preLaunchTask": "rust: cargo build",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": []
+        },
+    ]
+}
