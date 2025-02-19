@@ -6,12 +6,19 @@ use bevy_mod_imgui::ImguiContext;
 use crate::simulation::body::*;
 
 use super::{
-    apply_button_color, clear_button_color,
-    flex::{
-        flex1::{self, Children},
-        flex2::{self, FlexCrossAxisAlign, FlexRow},
-        FlexAxisAlign,
+    apply_button_color,
+    clear_button_color,
+    element::{
+        self,
+        button::ButtonChild,
+        flex::{self, FlexAxisAlign, FlexCrossAxisAlign},
+        root::RootNode,
     },
+    // flex::{
+    //     // flex1::{self, Children},
+    //     flex2::{self, FlexCrossAxisAlign, FlexRow},
+    //     FlexAxisAlign,
+    // },
     util::with_color_scheme,
 };
 
@@ -143,61 +150,137 @@ pub fn left_window_system(
                 // let rc_ui = Rc::new(RefCell::new(&mut *ui));
 
                 // Create RootNode
-                let mut root = flex2::RootNode::new();
+                let mut root = RootNode::new();
 
-                let x = root
-                    .flex_row()
-                    .align_axis(unsafe { ALIGN_AXIS })
-                    .align_cross_axis(unsafe { ALIGN_CROSS_AXIS })
-                    .flex_direction(flex2::FlexDirection::Column)
-                    .width(600.0)
-                    .height(800.0)
-                    .border(1.0)
-                    .gap(8.0)
-                    .fill([1.0, 0.0, 0.0, 1.0]);
+                root.children(|r| {
+                    r.flex_row()
+                        .align_axis(unsafe { ALIGN_AXIS })
+                        .align_cross_axis(unsafe { ALIGN_CROSS_AXIS })
+                        .flex_direction(flex::FlexDirection::Column)
+                        .width(600.0)
+                        .height(800.0)
+                        .border(1.0)
+                        .gap(8.0)
+                        .fill([1.0, 0.0, 0.0, 1.0])
+                        .children(|f| {
+                            f.flex_row()
+                                .width(300.0)
+                                .height(200.0)
+                                .border(3.0)
+                                .fill([0.0, 0.0, 1.0, 1.0])
+                                .align_axis(unsafe { ALIGN_AXIS })
+                                .align_cross_axis(unsafe { ALIGN_CROSS_AXIS })
+                                .children(|a| {
+                                    a.button(element::button::Button::default());
+                                    a.button(element::button::Button {
+                                        width: 100.0,
+                                        height: 28.0,
+                                        border: 0.0,
+                                        background: LinearRgba::RED,
+                                        label: "Button".to_string(),
+                                    });
+                                });
 
-                x.flex_row()
-                    .width(300.0)
-                    .height(200.0)
-                    .border(3.0)
-                    .fill([0.0, 0.0, 1.0, 1.0]);
+                            f.flex_row()
+                                .width(100.0)
+                                .height(100.0)
+                                .border(5.0)
+                                .fill([0.0, 1.0, 0.0, 1.0]);
 
-                x.flex_row()
-                    .width(100.0)
-                    .height(100.0)
-                    .border(5.0)
-                    .fill([0.0, 1.0, 0.0, 1.0]);
+                            f.flex_row()
+                                .width(200.0)
+                                .height(150.0)
+                                .border(1.0)
+                                .fill([0.0, 1.0, 1.0, 1.0])
+                                .align_axis(unsafe { ALIGN_AXIS })
+                                .children(|a| {
+                                    a.button(element::button::Button {
+                                        width: 100.0,
+                                        height: 60.0,
+                                        border: 0.0,
+                                        background: LinearRgba::RED,
+                                        label: "Button".to_string(),
+                                    });
+                                });
+                        });
+                });
 
                 root.build(ui);
 
-                ui.dummy([0.0, 16.0]);
+                // ui.dummy([0.0, 16.0]);
 
-                let mut root2 = flex2::RootNode::new();
+                // let mut root3 = flex2::RootNode::new();
 
-                let y = root2
-                    .flex_row()
-                    .align_axis(unsafe { ALIGN_AXIS })
-                    .align_cross_axis(unsafe { ALIGN_CROSS_AXIS })
-                    .width(600.0)
-                    .height(300.0)
-                    .border(0.0)
-                    .gap(8.0)
-                    .fill_parent(true)
-                    .fill([1.0, 0.0, 0.0, 1.0]);
+                // let z = root3
+                //     .flex_row()
+                //     .align_axis(unsafe { ALIGN_AXIS })
+                //     .align_cross_axis(unsafe { ALIGN_CROSS_AXIS })
+                //     .width(600.0)
+                //     .height(400.0)
+                //     .border(1.0)
+                //     .gap(8.0)
+                //     .fill([1.0, 0.0, 0.0, 1.0]);
 
-                y.flex_row()
-                    .width(300.0)
-                    .height(200.0)
-                    .border(3.0)
-                    .fill([0.0, 0.0, 1.0, 1.0]);
+                // z.flex_row()
+                //     .width(300.0)
+                //     .height(200.0)
+                //     .border(1.0)
+                //     .fill([0.0, 0.0, 1.0, 1.0]);
 
-                y.flex_row()
-                    .width(100.0)
-                    .height(100.0)
-                    .border(5.0)
-                    .fill([0.0, 1.0, 0.0, 1.0]);
+                // z.flex_row()
+                //     .width(100.0)
+                //     .height(100.0)
+                //     .border(1.0)
+                //     .fill([0.0, 1.0, 0.0, 1.0]);
 
-                root2.build(ui);
+                // z.flex_row()
+                //     .width(125.0)
+                //     .height(150.0)
+                //     .border(1.0)
+                //     .fill([1.0, 1.0, 0.0, 1.0]);
+
+                // root3.build(ui);
+
+                // ui.dummy([0.0, 16.0]);
+
+                // let mut root2 = flex2::RootNode::new();
+
+                // let y = root2
+                //     .flex_row()
+                //     .align_axis(unsafe { ALIGN_AXIS })
+                //     .align_cross_axis(unsafe { ALIGN_CROSS_AXIS })
+                //     .width(600.0)
+                //     .height(300.0)
+                //     .border(0.0)
+                //     .gap(8.0)
+                //     // .fill_parent(true)
+                //     .fill([1.0, 0.0, 0.0, 1.0]);
+
+                // y.flex_row()
+                //     .width(300.0)
+                //     .height(200.0)
+                //     .border(2.0)
+                //     .fill([0.0, 0.0, 1.0, 1.0]);
+
+                // y.flex_row()
+                //     .width(100.0)
+                //     .height(100.0)
+                //     .border(2.0)
+                //     .fill([0.0, 1.0, 0.0, 1.0]);
+
+                // root2.build(ui);
+
+                // let mut rootx = flex2::RootNode::new();
+                // rootx
+                //     .children(|r| {
+                //         r.flex_row().fill([0.5, 0.5, 0.5, 1.0]);
+                //     })
+                //     .build(ui);
+                // println!("pos before update {:?}", ui.cursor_screen_pos());
+                // ui.set_cursor_screen_pos([0.0, 0.0]);
+                // println!("pos after update {:?}", ui.cursor_screen_pos());
+                // ui.set_cursor_screen_pos([100.0, 100.0]);
+                // println!("pos after second update {:?}", ui.cursor_screen_pos());
 
                 // root.build();
 

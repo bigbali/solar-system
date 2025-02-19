@@ -15,6 +15,9 @@ logging.basicConfig(
 # Using ID's, as using names directly leads to ambiguity in some cases.
 bodies = (
     (
+        "sun", [("10", [])],
+    ),
+    (
         "largebody",  # planets
         [
             ("199", []),  # Mercury

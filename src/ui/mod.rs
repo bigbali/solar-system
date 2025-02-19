@@ -1,15 +1,17 @@
 use bevy::prelude::*;
-use flex::FlexAxisAlign;
+// use flex::FlexAxisAlign;
 use left_window::left_window_system;
 use right_window::right_window_system;
 use spawn_ui::spawn_window_system;
 use util::{active, hover, rgba};
 
-mod flex;
+mod element;
+// mod flex;
 mod left_window;
 mod right_window;
 mod spawn_ui;
 mod util;
+mod window;
 
 pub struct SimulationUiPlugin;
 

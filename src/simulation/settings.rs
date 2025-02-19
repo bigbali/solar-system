@@ -1,9 +1,11 @@
-use std::env;
+use std::{env, sync::Mutex};
 
 use bevy::prelude::*;
 
-/// Physics updates frequency (Hz)
+/// Physics update frequency (Hz)
 pub const UPDATE_FREQUENCY: i32 = 60;
+
+static UI_TEST_MODE: Mutex<bool> = Mutex::new(false);
 
 #[derive(Resource, Reflect)]
 pub struct SimulationParameters {

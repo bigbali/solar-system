@@ -1,11 +1,19 @@
-use std::{cell::RefCell, rc::Rc};
-
-use bevy::log::tracing_subscriber::fmt::format;
-use delegate::delegate;
 use imgui::DrawListMut;
 
-use super::FlexAxisAlign;
+use super::{
+    button::{Button, ButtonChild},
+    Override, UiElement, UiNode,
+};
 
+#[derive(Debug, Clone, Copy)]
+pub enum FlexAxisAlign {
+    Start,
+    End,
+    Between,
+    Stretch,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum FlexDirection {
     Row,
     Column,
@@ -19,27 +27,22 @@ pub enum FlexCrossAxisAlign {
     Stretch,
 }
 
-pub trait UiNode {
-    fn get_width(&self) -> f32;
-    fn get_height(&self) -> f32;
-    fn get_border(&self) -> f32;
-
-    // fn new() -> Self
-    // where
-    //     Self: Sized;
-
-    fn build(&self, context: &imgui::Ui, draw_list: &DrawListMut, cascading_override: Override);
+pub struct FlexBuilder<'a> {
+    parent: &'a mut Flex,
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct Override {
-    width: Option<f32>,
-    height: Option<f32>,
-    custom_rendering: bool,
+impl<'a> FlexBuilder<'a> {
+    pub fn flex_row(&mut self) -> &mut Flex {
+        self.parent.children.push(UiElement::Flex(Flex::default()));
+
+        match self.parent.children.last_mut().unwrap() {
+            UiElement::Flex(flex_row) => flex_row,
+            _ => unreachable!("Flex is not flexing :("),
+        }
+    }
 }
 
-// **Different UI Components**
-pub struct FlexRow {
+pub struct Flex {
     axis_align_items: FlexAxisAlign,
     cross_axis_align_items: FlexCrossAxisAlign,
     direction: FlexDirection,
@@ -52,7 +55,7 @@ pub struct FlexRow {
     children: Vec<UiElement>,
 }
 
-impl Default for FlexRow {
+impl Default for Flex {
     fn default() -> Self {
         Self {
             axis_align_items: FlexAxisAlign::Start,
@@ -69,7 +72,7 @@ impl Default for FlexRow {
     }
 }
 
-impl UiNode for FlexRow {
+impl UiNode for Flex {
     fn get_width(&self) -> f32 {
         self.width
     }
@@ -90,7 +93,7 @@ impl UiNode for FlexRow {
     }
 }
 
-impl FlexRow {
+impl Flex {
     pub fn align_axis(&mut self, spacing: FlexAxisAlign) -> &mut Self {
         self.axis_align_items = spacing;
         self
@@ -148,13 +151,10 @@ impl FlexRow {
         self
     }
 
-    pub fn flex_row(&mut self) -> &mut FlexRow {
-        self.children.push(UiElement::FlexRow(FlexRow::default()));
-
-        match self.children.last_mut().unwrap() {
-            UiElement::FlexRow(flex_row) => flex_row,
-            _ => unreachable!("FlexRow is not FlexRow."),
-        }
+    pub fn children(&mut self, f: impl FnOnce(&mut FlexBuilder)) -> &mut Self {
+        let mut builder = FlexBuilder { parent: self };
+        f(&mut builder);
+        self
     }
 
     fn build_row(
@@ -194,18 +194,23 @@ impl FlexRow {
             })
             .unwrap_or(0.0);
 
-        let horizontal_available_space_for_gap = max_width - items_width - self.border * 2.0;
+        let horizontal_available_space_for_gap = max_width - items_width - self.border;
 
         let size = [max_width, max_height];
 
         let cursor = context.cursor_screen_pos();
-        let starting_position = [
-            (cursor[0] + halfborder).floor(),
-            (cursor[1] + halfborder).floor(),
-        ];
+        let starting_position = [(cursor[0] + halfborder), (cursor[1] + halfborder)];
         let ending_position = [
-            (starting_position[0] + size[0] - halfborder).floor(),
-            (starting_position[1] + size[1] - halfborder).floor(),
+            (starting_position[0] + size[0] - halfborder),
+            (starting_position[1] + size[1] - halfborder),
+        ];
+        let outer_starting_position = [
+            (starting_position[0] - halfborder),
+            (starting_position[1] - halfborder),
+        ];
+        let outer_ending_position = [
+            (ending_position[0] + halfborder),
+            (ending_position[1] + halfborder),
         ];
 
         if let Some(fill) = self.fill {
@@ -234,6 +239,8 @@ impl FlexRow {
             for (i, child) in self.children.iter().enumerate() {
                 let vertical_empty_space = max_height - child.get_height() - self.border;
 
+                let inner_cursor = context.cursor_screen_pos();
+
                 let vertical_adjusted_start = match self.cross_axis_align_items {
                     FlexCrossAxisAlign::Start => starting_position[1],
                     FlexCrossAxisAlign::End => starting_position[1] + vertical_empty_space,
@@ -247,26 +254,26 @@ impl FlexRow {
                     match self.axis_align_items {
                         FlexAxisAlign::End => {
                             context.set_cursor_screen_pos([
-                                starting_position[0] + horizontal_available_space_for_gap
+                                inner_cursor[0] + horizontal_available_space_for_gap
                                     - self.gap * gap_division,
                                 vertical_adjusted_start,
                             ]);
                         }
                         _ => context
-                            .set_cursor_screen_pos([starting_position[0], vertical_adjusted_start]),
+                            .set_cursor_screen_pos([inner_cursor[0], vertical_adjusted_start]),
                     }
                 } else {
-                    let cursor = context.cursor_screen_pos();
-
                     match self.axis_align_items {
                         FlexAxisAlign::Between => {
                             context.set_cursor_screen_pos([
-                                cursor[0] + calculated_gap,
+                                inner_cursor[0] + calculated_gap,
                                 vertical_adjusted_start,
                             ]);
                         }
-                        _ => context
-                            .set_cursor_screen_pos([cursor[0] + self.gap, vertical_adjusted_start]),
+                        _ => context.set_cursor_screen_pos([
+                            inner_cursor[0] + self.gap,
+                            vertical_adjusted_start,
+                        ]),
                     }
                 }
 
@@ -296,8 +303,9 @@ impl FlexRow {
         }
 
         match cascading_override.custom_rendering {
-            true => context.set_cursor_screen_pos([ending_position[0], starting_position[1]]),
-            false => context.set_cursor_screen_pos([ending_position[0], ending_position[1]]),
+            true => context
+                .set_cursor_screen_pos([outer_ending_position[0], outer_starting_position[1]]),
+            false => context.set_cursor_screen_pos(outer_ending_position),
         }
     }
 
@@ -358,13 +366,14 @@ impl FlexRow {
         let number_of_children = self.children.len();
 
         if number_of_children > 0 {
-            let number_of_children = self.children.len();
             let gap_division = (number_of_children - 1).max(1) as f32; // make sure that we don't divide by 0
 
             let calculated_gap = ((vertical_empty_space - halfborder) / gap_division).round();
 
             for (i, child) in self.children.iter().enumerate() {
                 let horizontal_empty_space = max_width - child.get_width() - self.border;
+
+                let inner_cursor = context.cursor_screen_pos();
 
                 let cross_axis_adjusted_start = match self.cross_axis_align_items {
                     FlexCrossAxisAlign::Start => starting_position[0],
@@ -380,42 +389,50 @@ impl FlexRow {
                         FlexAxisAlign::End => {
                             context.set_cursor_screen_pos([
                                 cross_axis_adjusted_start,
-                                starting_position[1] + vertical_empty_space
-                                    - self.gap * gap_division,
+                                inner_cursor[1] + vertical_empty_space - self.gap * gap_division,
                             ]);
                         }
-                        _ => context.set_cursor_screen_pos([
-                            cross_axis_adjusted_start,
-                            starting_position[1],
-                        ]),
+                        _ => context
+                            .set_cursor_screen_pos([cross_axis_adjusted_start, inner_cursor[1]]),
                     }
                 } else {
                     match self.axis_align_items {
                         FlexAxisAlign::Between => {
                             context.set_cursor_screen_pos([
                                 cross_axis_adjusted_start,
-                                starting_position[1]
+                                inner_cursor[1]
                                     + calculated_gap
                                     + self.children[i - 1].get_height(),
                             ]);
                         }
+                        FlexAxisAlign::End => context.set_cursor_screen_pos([
+                            cross_axis_adjusted_start,
+                            inner_cursor[1] + self.gap + self.children[i - 1].get_height(),
+                        ]),
+                        FlexAxisAlign::Stretch => context.set_cursor_screen_pos([
+                            cross_axis_adjusted_start,
+                            inner_cursor[1]
+                                + (max_height - (self.gap * gap_division) - self.border * 2.0)
+                                    / number_of_children as f32
+                                + self.gap,
+                        ]),
                         _ => context.set_cursor_screen_pos([
                             cross_axis_adjusted_start,
-                            starting_position[1] + self.gap + self.children[i - 1].get_height(),
+                            inner_cursor[1] + self.gap + self.children[i - 1].get_height(),
                         ]),
                     }
                 }
 
                 let width_override: Option<f32> = match self.cross_axis_align_items {
-                    FlexCrossAxisAlign::Stretch => Some(
-                        (max_width - (self.gap * gap_division) - self.border * 2.0)
-                            / number_of_children as f32,
-                    ),
+                    FlexCrossAxisAlign::Stretch => Some(max_width - self.border),
                     _ => None,
                 };
 
                 let height_override: Option<f32> = match self.axis_align_items {
-                    FlexAxisAlign::Stretch => Some(max_height - self.border),
+                    FlexAxisAlign::Stretch => Some(
+                        (max_height - (self.gap * gap_division) - self.border * 2.0)
+                            / number_of_children as f32,
+                    ),
                     _ => None,
                 };
 
@@ -438,93 +455,13 @@ impl FlexRow {
     }
 }
 
-pub struct Button {
-    width: f32,
-    height: f32,
-    border: f32,
-    label: String,
-}
+impl<'a> ButtonChild for FlexBuilder<'a> {
+    fn button(&mut self, button: Button) -> &mut Button {
+        self.parent.children.push(UiElement::Button(button));
 
-impl UiNode for Button {
-    fn get_width(&self) -> f32 {
-        self.width
-    }
-
-    fn get_height(&self) -> f32 {
-        self.height
-    }
-
-    fn get_border(&self) -> f32 {
-        self.border
-    }
-
-    fn build(&self, context: &imgui::Ui, draw_list: &DrawListMut, cascading_override: Override) {
-        println!("Rendering Button: {}", self.label);
-    }
-}
-
-// **Enum to hold different types**
-pub enum UiElement {
-    FlexRow(FlexRow),
-    Button(Button),
-}
-
-impl UiNode for UiElement {
-    delegate! {
-        to match self {
-            UiElement::FlexRow(f) => f,
-            UiElement::Button(b) => b,
-        } {
-            fn get_width(&self) -> f32;
-            fn get_height(&self) -> f32;
-            fn get_border(&self) -> f32;
-            fn build(&self, context: &imgui::Ui, draw_list: &DrawListMut, cascading_override: Override);
-        }
-    }
-}
-
-pub struct RootNode {
-    // context: Rc<RefCell<imgui::Ui>>,
-    children: Vec<UiElement>, // Stores multiple types
-}
-
-impl RootNode {
-    pub fn new() -> Self {
-        Self {
-            children: Vec::new(),
-        }
-    }
-
-    pub fn flex_row(&mut self) -> &mut FlexRow {
-        self.children.push(UiElement::FlexRow(FlexRow::default()));
-
-        // Safely extract &mut FlexRow from the last UiElement
-        match self.children.last_mut().unwrap() {
-            UiElement::FlexRow(flex_row) => flex_row,
-            _ => unreachable!("We just pushed a FlexRow, so this is impossible"),
-        }
-    }
-
-    pub fn add_button(&mut self, button: Button) {
-        self.children.push(UiElement::Button(button));
-    }
-
-    // pub fn build(&mut self) {
-    //     for child in &self.children {
-    //         child.build(&self.context, &self.draw_list);
-    //     }
-    // }
-
-    pub fn build(&mut self, ui: &imgui::Ui) {
-        // Borrow the context inside the method
-        let context = ui;
-
-        // Get the draw list directly from the borrowed context
-        let draw_list = context.get_window_draw_list();
-
-        // Now build the children
-        for child in &self.children {
-            child.build(&context, &draw_list, Override::default());
+        match self.parent.children.last_mut().unwrap() {
+            UiElement::Button(button) => button,
+            _ => unreachable!("Button is not a child of Flex :("),
         }
     }
 }
