@@ -1,6 +1,9 @@
+use bevy::color::Color;
 use button::Button;
 use delegate::delegate;
 use flex::Flex;
+
+use super::UiColor;
 
 pub mod button;
 pub mod flex;
@@ -9,7 +12,7 @@ pub mod root;
 pub trait UiNode {
     fn get_width(&self) -> f32;
     fn get_height(&self) -> f32;
-    fn get_border(&self) -> f32;
+    fn get_border(&self) -> Border;
     fn build(
         &self,
         context: &imgui::Ui,
@@ -25,6 +28,12 @@ pub struct Override {
     custom_rendering: bool,
 }
 
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Border {
+    pub size: f32,
+    pub color: UiColor,
+}
+
 pub enum UiElement {
     Flex(Flex),
     Button(Button),
@@ -38,7 +47,7 @@ impl UiNode for UiElement {
         } {
             fn get_width(&self) -> f32;
             fn get_height(&self) -> f32;
-            fn get_border(&self) -> f32;
+            fn get_border(&self) -> Border;
             fn build(&self, context: &imgui::Ui, draw_list: &imgui::DrawListMut, cascading_override: Override);
         }
     }

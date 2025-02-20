@@ -150,62 +150,62 @@ pub fn left_window_system(
                 // let rc_ui = Rc::new(RefCell::new(&mut *ui));
 
                 // Create RootNode
-                let mut root = RootNode::new();
+                // let mut root = RootNode::new();
 
-                root.children(|r| {
-                    r.flex_row()
-                        .align_axis(unsafe { ALIGN_AXIS })
-                        .align_cross_axis(unsafe { ALIGN_CROSS_AXIS })
-                        .flex_direction(flex::FlexDirection::Column)
-                        .width(600.0)
-                        .height(800.0)
-                        .border(1.0)
-                        .gap(8.0)
-                        .fill([1.0, 0.0, 0.0, 1.0])
-                        .children(|f| {
-                            f.flex_row()
-                                .width(300.0)
-                                .height(200.0)
-                                .border(3.0)
-                                .fill([0.0, 0.0, 1.0, 1.0])
-                                .align_axis(unsafe { ALIGN_AXIS })
-                                .align_cross_axis(unsafe { ALIGN_CROSS_AXIS })
-                                .children(|a| {
-                                    a.button(element::button::Button::default());
-                                    a.button(element::button::Button {
-                                        width: 100.0,
-                                        height: 28.0,
-                                        border: 0.0,
-                                        background: LinearRgba::RED,
-                                        label: "Button".to_string(),
-                                    });
-                                });
+                // root.children(|r| {
+                //     r.flex_default()
+                //         .align_axis(unsafe { ALIGN_AXIS })
+                //         .align_cross_axis(unsafe { ALIGN_CROSS_AXIS })
+                //         .flex_direction(flex::FlexDirection::Column)
+                //         .width(600.0)
+                //         .height(800.0)
+                //         .border(1.0)
+                //         .gap(8.0)
+                //         .fill([1.0, 0.0, 0.0, 1.0])
+                //         .children(|f| {
+                //             f.flex_default()
+                //                 .width(300.0)
+                //                 .height(200.0)
+                //                 .border(3.0)
+                //                 .fill([0.0, 0.0, 1.0, 1.0])
+                //                 .align_axis(unsafe { ALIGN_AXIS })
+                //                 .align_cross_axis(unsafe { ALIGN_CROSS_AXIS })
+                //                 .children(|a| {
+                //                     a.button(element::button::Button::default());
+                //                     a.button(element::button::Button {
+                //                         width: 100.0,
+                //                         height: 28.0,
+                //                         border: 0.0,
+                //                         background: LinearRgba::RED,
+                //                         label: "Button".to_string(),
+                //                     });
+                //                 });
 
-                            f.flex_row()
-                                .width(100.0)
-                                .height(100.0)
-                                .border(5.0)
-                                .fill([0.0, 1.0, 0.0, 1.0]);
+                //             f.flex_default()
+                //                 .width(100.0)
+                //                 .height(100.0)
+                //                 .border(5.0)
+                //                 .fill([0.0, 1.0, 0.0, 1.0]);
 
-                            f.flex_row()
-                                .width(200.0)
-                                .height(150.0)
-                                .border(1.0)
-                                .fill([0.0, 1.0, 1.0, 1.0])
-                                .align_axis(unsafe { ALIGN_AXIS })
-                                .children(|a| {
-                                    a.button(element::button::Button {
-                                        width: 100.0,
-                                        height: 60.0,
-                                        border: 0.0,
-                                        background: LinearRgba::RED,
-                                        label: "Button".to_string(),
-                                    });
-                                });
-                        });
-                });
+                //             f.flex_default()
+                //                 .width(200.0)
+                //                 .height(150.0)
+                //                 .border(1.0)
+                //                 .fill([0.0, 1.0, 1.0, 1.0])
+                //                 .align_axis(unsafe { ALIGN_AXIS })
+                //                 .children(|a| {
+                //                     a.button(element::button::Button {
+                //                         width: 100.0,
+                //                         height: 60.0,
+                //                         border: 0.0,
+                //                         background: LinearRgba::RED,
+                //                         label: "Button".to_string(),
+                //                     });
+                //                 });
+                //         });
+                // });
 
-                root.build(ui);
+                // root.build(ui);
 
                 // ui.dummy([0.0, 16.0]);
 

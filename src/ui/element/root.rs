@@ -5,11 +5,20 @@ pub struct RootBuilder<'a> {
 }
 
 impl<'a> RootBuilder<'a> {
-    pub fn flex_row(&mut self) -> &mut Flex {
+    pub fn flex_default(&mut self) -> &mut Flex {
         self.parent.children.push(UiElement::Flex(Flex::default()));
 
         match self.parent.children.last_mut().unwrap() {
-            UiElement::Flex(flex_row) => flex_row,
+            UiElement::Flex(flex) => flex,
+            _ => unreachable!("Flex is not flexing :("),
+        }
+    }
+
+    pub fn flex(&mut self, flex: Flex) -> &mut Flex {
+        self.parent.children.push(UiElement::Flex(flex));
+
+        match self.parent.children.last_mut().unwrap() {
+            UiElement::Flex(flex) => flex,
             _ => unreachable!("Flex is not flexing :("),
         }
     }

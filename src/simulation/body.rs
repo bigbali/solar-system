@@ -1,4 +1,5 @@
 use std::cell::{Ref, RefCell};
+use std::fmt;
 use std::sync::{Arc, RwLock};
 
 use bevy::{color::Color, prelude::*};
@@ -138,6 +139,21 @@ pub enum BodyType {
     Other,
     #[default]
     Unknown,
+}
+
+impl fmt::Display for BodyType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let text = match self {
+            BodyType::Star => "Star",
+            BodyType::Planet => "Planet",
+            BodyType::DwarfPlanet => "Dwarf Planet",
+            BodyType::Moon => "Moon",
+            BodyType::Other => "Other",
+            BodyType::Unknown => "Unknown",
+        };
+
+        write!(f, "{}", text)
+    }
 }
 
 #[derive(Debug, Component, Clone, Default, Copy)]

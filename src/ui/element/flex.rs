@@ -1,8 +1,11 @@
+use bevy::color::{Color, LinearRgba};
 use imgui::DrawListMut;
+
+use crate::ui::UiColor;
 
 use super::{
     button::{Button, ButtonChild},
-    Override, UiElement, UiNode,
+    Border, Override, UiElement, UiNode,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -32,27 +35,44 @@ pub struct FlexBuilder<'a> {
 }
 
 impl<'a> FlexBuilder<'a> {
-    pub fn flex_row(&mut self) -> &mut Flex {
+    pub fn flex_default(&mut self) -> &mut Flex {
         self.parent.children.push(UiElement::Flex(Flex::default()));
 
         match self.parent.children.last_mut().unwrap() {
-            UiElement::Flex(flex_row) => flex_row,
+            UiElement::Flex(flex) => flex,
             _ => unreachable!("Flex is not flexing :("),
         }
+    }
+
+    pub fn flex(&mut self, flex: Flex) -> &mut Flex {
+        self.parent.children.push(UiElement::Flex(flex));
+
+        match self.parent.children.last_mut().unwrap() {
+            UiElement::Flex(flex) => flex,
+            _ => unreachable!("Flex is not flexing :("),
+        }
+    }
+
+    pub fn parent_width(&self) -> f32 {
+        self.parent.width
+    }
+
+    pub fn parent_height(&self) -> f32 {
+        self.parent.height
     }
 }
 
 pub struct Flex {
-    axis_align_items: FlexAxisAlign,
-    cross_axis_align_items: FlexCrossAxisAlign,
-    direction: FlexDirection,
-    gap: f32,
-    width: f32,
-    height: f32,
-    border: f32,
-    fill_parent: bool,
-    fill: Option<[f32; 4]>,
-    children: Vec<UiElement>,
+    pub axis_align_items: FlexAxisAlign,
+    pub cross_axis_align_items: FlexCrossAxisAlign,
+    pub direction: FlexDirection,
+    pub gap: f32,
+    pub width: f32,
+    pub height: f32,
+    pub border: Border,
+    pub fill_parent: bool,
+    pub fill: Option<UiColor>,
+    pub children: Vec<UiElement>,
 }
 
 impl Default for Flex {
@@ -64,7 +84,10 @@ impl Default for Flex {
             gap: 0.0,
             width: 320.0,
             height: 60.0,
-            border: 0.0,
+            border: Border {
+                size: 0.0,
+                color: UiColor::from(LinearRgba::BLACK),
+            },
             fill_parent: false,
             fill: None,
             children: Vec::new(),
@@ -81,7 +104,7 @@ impl UiNode for Flex {
         self.height
     }
 
-    fn get_border(&self) -> f32 {
+    fn get_border(&self) -> Border {
         self.border
     }
 
@@ -132,11 +155,11 @@ impl Flex {
             }
 
             acc
-        }) + self.border * 2.0;
+        }) + self.border.size * 2.0;
         self
     }
 
-    pub fn border(&mut self, border: f32) -> &mut Self {
+    pub fn border(&mut self, border: Border) -> &mut Self {
         self.border = border;
         self
     }
@@ -146,7 +169,7 @@ impl Flex {
         self
     }
 
-    pub fn fill(&mut self, fill: [f32; 4]) -> &mut Self {
+    pub fn fill(&mut self, fill: UiColor) -> &mut Self {
         self.fill = Some(fill);
         self
     }
@@ -179,7 +202,7 @@ impl Flex {
                 .unwrap_or(self.height),
         };
 
-        let halfborder = self.border / 2.0;
+        let halfborder = self.border.size / 2.0;
 
         let items_width = self.children.iter().map(|i| i.get_width()).sum::<f32>();
         let tallest_item_height = self
@@ -194,7 +217,7 @@ impl Flex {
             })
             .unwrap_or(0.0);
 
-        let horizontal_available_space_for_gap = max_width - items_width - self.border;
+        let horizontal_available_space_for_gap = max_width - items_width - self.border.size;
 
         let size = [max_width, max_height];
 
@@ -220,10 +243,10 @@ impl Flex {
                 .build();
         }
 
-        if self.border > 0.0 {
+        if self.border.size > 0.0 {
             draw_list
-                .add_rect(starting_position, ending_position, [1.0, 1.0, 1.0, 1.0])
-                .thickness(self.border)
+                .add_rect(starting_position, ending_position, self.border.color)
+                .thickness(self.border.size)
                 .build();
         }
 
@@ -237,7 +260,7 @@ impl Flex {
                 ((horizontal_available_space_for_gap - halfborder) / gap_division).round();
 
             for (i, child) in self.children.iter().enumerate() {
-                let vertical_empty_space = max_height - child.get_height() - self.border;
+                let vertical_empty_space = max_height - child.get_height() - self.border.size;
 
                 let inner_cursor = context.cursor_screen_pos();
 
@@ -279,14 +302,14 @@ impl Flex {
 
                 let width_override: Option<f32> = match self.axis_align_items {
                     FlexAxisAlign::Stretch => Some(
-                        (max_width - (self.gap * gap_division) - self.border * 2.0)
+                        (max_width - (self.gap * gap_division) - self.border.size * 2.0)
                             / number_of_children as f32,
                     ),
                     _ => None,
                 };
 
                 let height_override: Option<f32> = match self.cross_axis_align_items {
-                    FlexCrossAxisAlign::Stretch => Some(max_height - self.border),
+                    FlexCrossAxisAlign::Stretch => Some(max_height - self.border.size),
                     _ => None,
                 };
 
@@ -331,11 +354,11 @@ impl Flex {
                 .unwrap_or(self.height),
         };
 
-        let halfborder = self.border / 2.0;
+        let halfborder = self.border.size / 2.0;
 
         let items_height = self.children.iter().map(|i| i.get_height()).sum::<f32>();
 
-        let vertical_empty_space = max_height - items_height - self.border * 2.0;
+        let vertical_empty_space = max_height - items_height - self.border.size * 2.0;
 
         let size = [max_width, max_height];
 
@@ -356,10 +379,10 @@ impl Flex {
                 .build();
         }
 
-        if self.border > 0.0 {
+        if self.border.size > 0.0 {
             draw_list
-                .add_rect(starting_position, ending_position, [1.0, 1.0, 1.0, 1.0])
-                .thickness(self.border)
+                .add_rect(starting_position, ending_position, self.border.color)
+                .thickness(self.border.size)
                 .build();
         }
 
@@ -371,7 +394,7 @@ impl Flex {
             let calculated_gap = ((vertical_empty_space - halfborder) / gap_division).round();
 
             for (i, child) in self.children.iter().enumerate() {
-                let horizontal_empty_space = max_width - child.get_width() - self.border;
+                let horizontal_empty_space = max_width - child.get_width() - self.border.size;
 
                 let inner_cursor = context.cursor_screen_pos();
 
@@ -412,7 +435,7 @@ impl Flex {
                         FlexAxisAlign::Stretch => context.set_cursor_screen_pos([
                             cross_axis_adjusted_start,
                             inner_cursor[1]
-                                + (max_height - (self.gap * gap_division) - self.border * 2.0)
+                                + (max_height - (self.gap * gap_division) - self.border.size * 2.0)
                                     / number_of_children as f32
                                 + self.gap,
                         ]),
@@ -424,13 +447,13 @@ impl Flex {
                 }
 
                 let width_override: Option<f32> = match self.cross_axis_align_items {
-                    FlexCrossAxisAlign::Stretch => Some(max_width - self.border),
+                    FlexCrossAxisAlign::Stretch => Some(max_width - self.border.size),
                     _ => None,
                 };
 
                 let height_override: Option<f32> = match self.axis_align_items {
                     FlexAxisAlign::Stretch => Some(
-                        (max_height - (self.gap * gap_division) - self.border * 2.0)
+                        (max_height - (self.gap * gap_division) - self.border.size * 2.0)
                             / number_of_children as f32,
                     ),
                     _ => None,

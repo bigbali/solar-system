@@ -19,7 +19,7 @@ API SOURCE: NASA/JPL Horizons API
 
 
 *******************************************************************************
-Ephemeris / API_USER Fri Jan 31 09:39:56 2025 Pasadena, USA      / Horizons    
+Ephemeris / API_USER Thu Feb 20 09:58:32 2025 Pasadena, USA      / Horizons    
 *******************************************************************************
 Target body name: Deimos (402)                    {source: mar097}
 Center body name: Sun (10)                        {source: DE441}
@@ -43,8 +43,8 @@ Atmos refraction: NO (AIRLESS)
 RA format       : DEG
 Time format     : BOTH
 Calendar mode   : Mixed Julian/Gregorian
-EOP file        : eop.250130.p250428                                           
-EOP coverage    : DATA-BASED 1962-JAN-20 TO 2025-JAN-30. PREDICTS-> 2025-APR-27
+EOP file        : eop.250219.p250518                                           
+EOP coverage    : DATA-BASED 1962-JAN-20 TO 2025-FEB-19. PREDICTS-> 2025-MAY-17
 Units conversion: 1 au= 149597870.700 km, c= 299792.458 km/s, 1 day= 86400.0 s 
 Table cut-offs 1: Elevation (-90.0deg=NO ),Airmass     n.a.    , Daylight (NO )
 Table cut-offs 2: Solar elongation (  0.0,180.0=NO ),Local Hour Angle( 0.0=NO )
@@ -503,7 +503,7 @@ API SOURCE: NASA/JPL Horizons API
 
 
 *******************************************************************************
-Ephemeris / API_USER Fri Jan 31 09:39:57 2025 Pasadena, USA      / Horizons
+Ephemeris / API_USER Thu Feb 20 09:58:33 2025 Pasadena, USA      / Horizons
 *******************************************************************************
 Target body name: Deimos (402)                    {source: mar097}
 Center body name: Sun (10)                        {source: DE441}
@@ -620,7 +620,7 @@ API SOURCE: NASA/JPL Horizons API
 
 
 *******************************************************************************
-Ephemeris / API_USER Fri Jan 31 09:39:56 2025 Pasadena, USA      / Horizons
+Ephemeris / API_USER Thu Feb 20 09:58:32 2025 Pasadena, USA      / Horizons
 *******************************************************************************
 Target body name: Deimos (402)                    {source: mar097}
 Center body name: Sun (10)                        {source: DE441}

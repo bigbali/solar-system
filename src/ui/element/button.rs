@@ -1,15 +1,16 @@
 use bevy::color::LinearRgba;
 
-use crate::ui::{apply_button_color, clear_button_color};
+use crate::ui::{apply_button_color, clear_button_color, UiColor};
 
-use super::{Override, UiNode};
+use super::{Border, Override, UiNode};
 
 pub struct Button {
     pub width: f32,
     pub height: f32,
-    pub border: f32,
-    pub background: LinearRgba,
+    pub border: Border,
+    pub background: UiColor,
     pub label: String,
+    pub on_click: Option<Box<dyn Fn()>>,
 }
 
 impl Default for Button {
@@ -17,9 +18,13 @@ impl Default for Button {
         Self {
             width: 120.0,
             height: 48.0,
-            border: 0.0,
-            background: LinearRgba::BLACK,
+            border: Border {
+                size: 0.0,
+                color: UiColor::from(LinearRgba::BLACK),
+            },
+            background: UiColor::from(LinearRgba::BLACK),
             label: "Button".to_string(),
+            on_click: None,
         }
     }
 }
@@ -33,7 +38,7 @@ impl UiNode for Button {
         self.height
     }
 
-    fn get_border(&self) -> f32 {
+    fn get_border(&self) -> Border {
         self.border
     }
 
@@ -48,11 +53,19 @@ impl UiNode for Button {
 
         let cursor = context.cursor_screen_pos();
 
-        let color_stack = apply_button_color(context, self.background);
+        let color_stack = apply_button_color(context, self.background.into());
 
-        context.button_with_size(self.label.clone(), [width, height]);
+        let a = context.push_style_var(imgui::StyleVar::FrameBorderSize(self.border.size));
+        let b = context.push_style_color(imgui::StyleColor::Border, self.border.color);
+
+        if context.button_with_size(self.label.clone(), [width, height]) {
+            self.on_click.as_ref().unwrap()();
+        }
 
         clear_button_color(color_stack);
+
+        a.pop();
+        b.pop();
 
         context.set_cursor_screen_pos([cursor[0] + width, cursor[1] + height]);
     }

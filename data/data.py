@@ -55,6 +55,7 @@ bodies = (
 )
 
 color_map = {
+    "Sun": [0.96, 0.75, 0.15, 1.0],
     "Mercury": [0.5, 0.5, 0.5, 1.0],
     "Venus": [0.9, 0.8, 0.6, 1.0],
     "Earth": [0.0, 0.5, 1.0, 1.0],
@@ -100,6 +101,13 @@ def get_radius(line: str) -> float | None:
         value_km = float(match.group(2))
 
         return (value_km * u.km).to(u.AU).value  # type: ignore
+    else:  # this is actual in case of the Sun, apparently
+        match = re.search(r"Vol. mean radius, km\s*=\s*([\d\.]+)", line, re.IGNORECASE)
+
+        if match:
+            value_km = float(match.group(1))
+
+            return (value_km * u.km).to(u.AU).value  # type: ignore
 
 
 def get_temp(line: str) -> float | None:
@@ -234,9 +242,12 @@ def get_geophysical_data(text: str):
         # The first value *should* have been what we want.
 
         # Note: small bodies such as Ceres, Eris, etc. do not seem to have these properties listed.
-        mass = get_mass(line)
-        if mass is not None and "mass" not in data:
-            data["mass"] = mass
+        if "name" in data and data["name"].lower() == "sun":
+            data["mass"] = (1 * u.M_sun).value  # type: ignore
+        else:
+            mass = get_mass(line)
+            if mass is not None and "mass" not in data:
+                data["mass"] = mass
 
         radius = get_radius(line)
         if radius is not None and "radius" not in data:
@@ -298,7 +309,7 @@ def calculate_missing_data(data: dict[str, Any], name: str):
         else:
             data["mass"] = (1.0e16 * u.kg).to(u.M_sun).value  # type: ignore
             logging.warning(
-                f"Missing mass for {name}! Using fallback value: {data['mass']} M☉."
+                f"Missing mass for {name}! Using arbitrary fallback value: {data['mass']} M☉."
             )
 
     return data

@@ -1,8 +1,8 @@
-use bevy::winit::cursor;
+use bevy::{color::LinearRgba, winit::cursor};
 use imgui::*;
 use mint;
 
-use super::Color;
+use super::DefaultColor;
 
 static mut IMGUI_INCR_ID: u32 = 0;
 
@@ -16,13 +16,13 @@ fn id() -> String {
 pub fn with_color_scheme(ui: &imgui::Ui, f: impl FnOnce()) {
     let mut color_stack = Vec::new();
 
-    color_stack.push(ui.push_style_color(StyleColor::WindowBg, Color::Background));
-    color_stack.push(ui.push_style_color(StyleColor::Button, Color::Button));
-    color_stack.push(ui.push_style_color(StyleColor::ButtonHovered, Color::ButtonHover));
-    color_stack.push(ui.push_style_color(StyleColor::ButtonActive, Color::ButtonActive));
-    color_stack.push(ui.push_style_color(StyleColor::Border, Color::Border));
-    color_stack.push(ui.push_style_color(StyleColor::Text, Color::Text));
-    color_stack.push(ui.push_style_color(StyleColor::FrameBg, Color::Input));
+    color_stack.push(ui.push_style_color(StyleColor::WindowBg, DefaultColor::Background));
+    color_stack.push(ui.push_style_color(StyleColor::Button, DefaultColor::Button));
+    color_stack.push(ui.push_style_color(StyleColor::ButtonHovered, DefaultColor::ButtonHover));
+    color_stack.push(ui.push_style_color(StyleColor::ButtonActive, DefaultColor::ButtonActive));
+    color_stack.push(ui.push_style_color(StyleColor::Border, DefaultColor::Border));
+    color_stack.push(ui.push_style_color(StyleColor::Text, DefaultColor::Text));
+    color_stack.push(ui.push_style_color(StyleColor::FrameBg, DefaultColor::Input));
 
     f();
 
