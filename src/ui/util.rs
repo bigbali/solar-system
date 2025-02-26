@@ -1,16 +1,15 @@
+use std::sync::atomic::{AtomicU32, Ordering};
+
 use bevy::{color::LinearRgba, winit::cursor};
 use imgui::*;
 use mint;
 
 use super::DefaultColor;
 
-static mut IMGUI_INCR_ID: u32 = 0;
+static INCR_ID: AtomicU32 = AtomicU32::new(0);
 
-fn id() -> String {
-    unsafe {
-        IMGUI_INCR_ID += 1;
-        format!("##IMGUI_GROUP_{}", IMGUI_INCR_ID)
-    }
+pub fn id() -> String {
+    format!("##{}", INCR_ID.fetch_add(1, Ordering::SeqCst).to_string())
 }
 
 pub fn with_color_scheme(ui: &imgui::Ui, f: impl FnOnce()) {

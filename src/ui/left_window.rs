@@ -20,6 +20,7 @@ use super::{
     //     FlexAxisAlign,
     // },
     util::with_color_scheme,
+    window::test_window::PLACEMENT_X,
 };
 
 static mut ALIGN_AXIS_SELECT: usize = 0;
@@ -30,6 +31,9 @@ static mut DEBUG: bool = false;
 static mut FILL: bool = false;
 static mut BORDER: bool = true;
 static mut HAUTO: bool = true;
+
+static mut PLACEMENT_X_SELECT: usize = 0;
+static mut PLACEMENT_Y_SELECT: usize = 0;
 
 pub fn left_window_system(
     mut context: NonSendMut<ImguiContext>,
@@ -135,6 +139,38 @@ pub fn left_window_system(
                         }
                     }
                 }
+
+                // let window_alignment_x = vec!["Start", "End", "Center"];
+                // if let Some(cb) = ui.begin_combo(
+                //     "##walignx",
+                //     format!("Window X alignment: {}", items2[unsafe { PLACEMENT_X }]),
+                // ) {
+                //     for (i, cur) in items2.iter().enumerate() {
+                //         unsafe {
+                //             if items[ALIGN_CROSS_AXIS_SELECT] == *cur {
+                //                 // Auto-scroll to selected item
+                //                 ui.set_item_default_focus();
+                //             }
+                //             // Create a "selectable"
+                //             let clicked = ui
+                //                 .selectable_config(cur)
+                //                 .selected(items2[ALIGN_CROSS_AXIS_SELECT] == *cur)
+                //                 .build();
+                //             // When item is clicked, store it
+                //             if clicked {
+                //                 ALIGN_CROSS_AXIS_SELECT = i;
+                //             }
+
+                //             ALIGN_CROSS_AXIS = match items2[ALIGN_CROSS_AXIS_SELECT] {
+                //                 "Start" => FlexCrossAxisAlign::Start,
+                //                 "End" => FlexCrossAxisAlign::End,
+                //                 "Center" => FlexCrossAxisAlign::Center,
+                //                 "Stretch" => FlexCrossAxisAlign::Stretch,
+                //                 _ => FlexCrossAxisAlign::Start,
+                //             }
+                //         }
+                //     }
+                // }
 
                 // let mut root = RootNode::new(ui);
 

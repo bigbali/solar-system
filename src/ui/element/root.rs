@@ -45,7 +45,7 @@ impl RootNode {
         let context = ui;
         let draw_list = context.get_window_draw_list();
 
-        for child in &self.children {
+        for child in &mut self.children {
             child.build(&context, &draw_list, Override::default());
         }
 

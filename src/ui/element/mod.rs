@@ -1,13 +1,16 @@
-use bevy::color::Color;
 use button::Button;
 use delegate::delegate;
+use dropdown::{Dropdown, DropdownBox, ErasedDropdown};
 use flex::Flex;
 
 use super::UiColor;
 
 pub mod button;
+pub mod dropdown;
 pub mod flex;
+pub mod input;
 pub mod root;
+pub mod window;
 
 pub trait UiNode {
     fn get_width(&self) -> f32;
@@ -37,6 +40,7 @@ pub struct Border {
 pub enum UiElement {
     Flex(Flex),
     Button(Button),
+    Dropdown(DropdownBox),
 }
 
 impl UiNode for UiElement {
@@ -44,6 +48,7 @@ impl UiNode for UiElement {
         to match self {
             UiElement::Flex(f) => f,
             UiElement::Button(b) => b,
+            UiElement::Dropdown(d) => d,
         } {
             fn get_width(&self) -> f32;
             fn get_height(&self) -> f32;

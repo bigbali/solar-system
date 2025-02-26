@@ -5,6 +5,7 @@ use crate::ui::UiColor;
 
 use super::{
     button::{Button, ButtonChild},
+    dropdown::{Dropdown, DropdownBox, DropdownChild},
     Border, Override, UiElement, UiNode,
 };
 
@@ -322,6 +323,8 @@ impl Flex {
                         custom_rendering: true,
                     },
                 );
+
+                context.same_line_with_spacing(0.0, 0.0);
             }
         }
 
@@ -485,6 +488,21 @@ impl<'a> ButtonChild for FlexBuilder<'a> {
         match self.parent.children.last_mut().unwrap() {
             UiElement::Button(button) => button,
             _ => unreachable!("Button is not a child of Flex :("),
+        }
+    }
+}
+
+impl<'a> DropdownChild for FlexBuilder<'a> {
+    fn dropdown<T: 'static + PartialEq + Clone>(
+        &mut self,
+        dropdown: Dropdown<T>,
+    ) -> &mut Dropdown<T> {
+        let dropdown_box = DropdownBox::new(dropdown);
+        self.parent.children.push(UiElement::Dropdown(dropdown_box));
+
+        match self.parent.children.last_mut().unwrap() {
+            UiElement::Dropdown(dropdown_box) => dropdown_box.downcast_mut::<T>().unwrap(),
+            _ => unreachable!("Dropdown not dropdowning :("),
         }
     }
 }
