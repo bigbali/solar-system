@@ -19,6 +19,17 @@ pub struct Body {
 }
 
 #[derive(Debug, Clone, Component, Copy, Deserialize)]
+pub struct BodyOrbitalElements {
+    /// Tilt of the body's orbit
+    pub inclination: f32,
+    pub longitude_of_ascending_node: f32,
+    pub true_anomaly: f32,
+
+    /// AKA argument of periapsis
+    pub argument_of_perifocus: f32,
+}
+
+#[derive(Debug, Clone, Component, Copy, Deserialize)]
 pub struct BodyData {
     /// Absolute position in world space, in Astronomical Units
     #[serde(deserialize_with = "deserialize_vec3")]
@@ -31,14 +42,6 @@ pub struct BodyData {
     /// Astronomical Units per day
     #[serde(skip)]
     pub acceleration: Vec3,
-
-    /// rad/s
-    #[serde(default)]
-    pub rotation: f32,
-
-    /// AKA obliquity
-    #[serde(default)]
-    pub obliquity: f32,
 
     /// In Solar Mass
     #[serde(default)]
@@ -55,6 +58,17 @@ pub struct BodyData {
     /// g/cm^3
     #[serde(default)]
     pub density: f32,
+
+    /// rad/s
+    #[serde(default)]
+    pub rotation: f32,
+
+    /// AKA axial tilt, relative to orbit
+    #[serde(default)]
+    pub obliquity: f32,
+
+    #[serde(default)]
+    pub orbital_elements: Option<BodyOrbitalElements>,
 }
 
 impl Default for BodyData {
@@ -69,11 +83,13 @@ impl Default for BodyData {
             radius: 0.0,
             temperature: 0.0,
             density: 1.0,
+            orbital_elements: None,
         }
     }
 }
 
 impl BodyData {
+    /// No need for it now, but might be useful in the future
     pub fn downscaled(&self, parameters: &SimulationParameters) -> Self {
         Self {
             position: self.position,
@@ -85,6 +101,7 @@ impl BodyData {
             radius: self.radius / parameters.unit_scale,
             temperature: self.temperature,
             density: self.density,
+            orbital_elements: self.orbital_elements,
         }
     }
 }
@@ -93,6 +110,7 @@ impl BodyData {
 #[serde(default)]
 pub struct BodyMetadata {
     pub name: Option<String>,
+    // TODO usize
     pub id: Option<u32>,
 
     #[serde(default, deserialize_with = "deserialize_color")]

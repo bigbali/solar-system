@@ -1,26 +1,12 @@
-use std::{cell::RefCell, rc::Rc};
-
 use bevy::prelude::*;
 use bevy_mod_imgui::ImguiContext;
 
 use crate::simulation::body::*;
 
 use super::{
-    apply_button_color,
-    clear_button_color,
-    element::{
-        self,
-        button::ButtonChild,
-        flex::{self, FlexAxisAlign, FlexCrossAxisAlign},
-        root::RootNode,
-    },
-    // flex::{
-    //     // flex1::{self, Children},
-    //     flex2::{self, FlexCrossAxisAlign, FlexRow},
-    //     FlexAxisAlign,
-    // },
+    apply_button_color, clear_button_color,
+    element::flex::{FlexAxisAlign, FlexCrossAxisAlign},
     util::with_color_scheme,
-    window::test_window::PLACEMENT_X,
 };
 
 static mut ALIGN_AXIS_SELECT: usize = 0;

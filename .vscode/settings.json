@@ -3,4 +3,5 @@
     "python.analysis.autoImportCompletions": true,
     "python.analysis.languageServerMode": "full",
     "python.languageServer": "Pylance",
+    "workbench.colorTheme": "Stardust Dark",
 }

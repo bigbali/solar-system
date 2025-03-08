@@ -2,8 +2,13 @@ use std::{
     any::Any,
     cell::{Cell, RefCell},
     collections::HashMap,
+    fmt,
     ops::{Deref, DerefMut},
-    sync::atomic::{AtomicUsize, Ordering},
+    rc::Rc,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
 };
 
 use bevy::{color::LinearRgba, reflect::Type};
@@ -20,12 +25,13 @@ thread_local! {
     static DROPDOWN_ID_INCR: AtomicUsize = AtomicUsize::new(0);
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct DropdownValue<T> {
     pub value: T,
     pub label: String,
 }
 
+#[derive(Debug, Clone)]
 pub struct Dropdown<T>
 where
     T: PartialEq,
@@ -36,9 +42,8 @@ where
     pub border: Border,
     pub background: UiColor,
     pub label: String,
-    pub on_select: Option<Box<dyn Fn(T)>>,
+    pub on_select: OnSelectCallback<T>,
     pub values: Vec<DropdownValue<T>>,
-    // pub selected_index: Cell<usize>,
 }
 
 impl Dropdown<()> {
@@ -99,9 +104,8 @@ impl<T: PartialEq> Default for Dropdown<T> {
             },
             background: UiColor::from(LinearRgba::BLACK),
             label: "Button".to_string(),
-            on_select: None,
+            on_select: OnSelectCallback(None),
             values: Vec::new(),
-            // selected_index: Cell::new(0),
         }
     }
 }
@@ -160,6 +164,10 @@ impl<T: PartialEq + Clone> UiNode for Dropdown<T> {
 
                 if clicked {
                     self.set_current_index(i);
+
+                    if let Some(callback) = &self.on_select.0 {
+                        callback(v.clone());
+                    }
                 }
             }
 
@@ -198,7 +206,6 @@ impl UiNode for DropdownBox {
 }
 
 pub trait DropdownChild {
-    // type Item: PartialEq;
     fn dropdown<T: 'static + PartialEq + Clone>(
         &mut self,
         dropdown: Dropdown<T>,
@@ -220,39 +227,37 @@ impl<T: 'static + PartialEq + Clone> ErasedDropdown for Dropdown<T> {
     }
 }
 
-// impl<T> TypeErasedUiNode for Dropdown<T> {}
-
-// pub trait TypeErasedUiNode: UiNode + ErasedDropdown {}
-
-// pub struct DropdownBox {
-//     pub inner: Box<dyn ErasedDropdown>,
-// }
+#[derive(Clone)]
 pub struct DropdownBox {
-    pub inner: Box<dyn ErasedDropdown>,
+    pub inner: Rc<dyn ErasedDropdown>,
 }
 
 impl DropdownBox {
     pub fn new<T: 'static + PartialEq + Clone>(dropdown: Dropdown<T>) -> Self {
         Self {
-            inner: Box::new(dropdown),
+            inner: Rc::new(dropdown),
         }
     }
 
     pub fn downcast_mut<T: PartialEq + 'static>(&mut self) -> Option<&mut Dropdown<T>> {
-        self.inner.as_any_mut().downcast_mut::<Dropdown<T>>()
+        // self.inner.as_any_mut().downcast_mut::<Dropdown<T>>()
+
+        Rc::get_mut(&mut self.inner)
+            .and_then(|inner| inner.as_any_mut().downcast_mut::<Dropdown<T>>())
     }
 }
 
-// impl Deref for DropdownBox {
-//     type Target = dyn UiNode;
+impl fmt::Debug for DropdownBox {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("DropdownBox")
+    }
+}
 
-//     fn deref(&self) -> &Self::Target {
-//         &*self.inner
-//     }
-// }
+#[derive(Clone)]
+pub struct OnSelectCallback<T>(pub Option<Arc<dyn Fn(T)>>);
 
-// impl DerefMut for DropdownBox {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         &mut *self.inner
-//     }
-// }
+impl<T> fmt::Debug for OnSelectCallback<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("OnSelect Closure")
+    }
+}

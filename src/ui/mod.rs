@@ -6,15 +6,14 @@ use imgui::ImColor32;
 use left_window::left_window_system;
 use mint::Vector4;
 use right_window::right_window_system;
-use spawn_ui::spawn_window_system;
 use util::{active, hover, rgba};
-use window::test_window::test_window_system;
+use window::{spawn_window::spawn_window_system, test_window::test_window_system};
 
 mod element;
 // mod flex;
 mod left_window;
 mod right_window;
-mod spawn_ui;
+// mod spawn_ui;
 mod util;
 mod window;
 
@@ -26,10 +25,10 @@ impl Plugin for SimulationUiPlugin {
             .add_systems(
                 Update,
                 (
-                    left_window_system,
-                    right_window_system,
+                    // left_window_system,
+                    // right_window_system,
                     spawn_window_system,
-                    test_window_system,
+                    // test_window_system,
                 ),
             );
     }

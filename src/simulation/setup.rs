@@ -1,98 +1,21 @@
 use bevy::prelude::*;
 
 use crate::{
-    simulation::body::*, simulation::data::initialize_bodies, simulation::player::Player,
-    simulation::settings::SimulationParameters,
+    material::saturn_rings::SaturnRingMaterial,
+    simulation::{
+        body::*, data::initialize_bodies, player::Player, settings::SimulationParameters,
+    },
 };
 
 pub fn initialize_bodies_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut ring_material: ResMut<Assets<SaturnRingMaterial>>,
     parameters: Res<SimulationParameters>,
     asset_server: Res<AssetServer>,
 ) {
     let bodies = initialize_bodies(&asset_server);
-
-    // if let Some(bodies) = bodies {
-    //     let sun = bodies.iter().find(|b| b.metadata.name.is_some_and(|n| n == "Sun")).unwrap();
-    // }
-    // let sun_texture: Handle<Image> = asset_server.load("sun.jpg");
-    // let sun_radius = 0.00465047;
-    // let sun_body = Body {
-    //     data: BodyData {
-    //         // position: Vec3::new(
-    //         //     0.00450250878464055477,
-    //         //     0.00076707642709100705,
-    //         //     0.00026605791776697764,
-    //         // ),
-    //         position: Vec3::new(0.0, 0.0, 0.0),
-    //         velocity: Vec3::new(
-    //             -0.00000035174953607552,
-    //             0.00000517762640983341,
-    //             0.00000222910217891203,
-    //         ),
-    //         mass: 1.0,
-    //         radius: sun_radius,
-    //         temperature: 5778.0,
-    //         ..default()
-    //     },
-    //     metadata: BodyMetadata {
-    //         color: Color::linear_rgb(0.5, 0.5, 0.0),
-    //         name: Some("Sun".to_string()),
-    //         texture: Some(sun_texture.clone()),
-    //         body_type: BodyType::Star,
-    //         id: Some(0),
-    //     },
-    //     satellites: None,
-    // };
-
-    // let sun = commands
-    //     .spawn((
-    //         sun_body.clone(),
-    //         Mesh3d(meshes.add(Sphere {
-    //             radius: sun_radius / parameters.unit_scale,
-    //         })),
-    //         MeshMaterial3d(materials.add(StandardMaterial {
-    //             emissive_texture: Some(sun_texture),
-    //             emissive: LinearRgba::new(100.0, 25.0, 25.0, 1.0),
-    //             ..default()
-    //         })),
-    //         Transform::from_translation(sun_body.data.position),
-    //         Star {},
-    //     ))
-    //     .with_children(|p| {
-    //         p.spawn(PointLight {
-    //             shadows_enabled: true,
-    //             color: Color::WHITE,
-    //             range: f32::MAX,
-    //             radius: sun_radius / parameters.unit_scale * 1.05,
-    //             intensity: 1_000_000.0,
-    //             shadow_depth_bias: 0.0,
-    //             shadow_map_near_z: 0.0,
-    //             shadow_normal_bias: 0.0,
-    //             ..default()
-    //         });
-    //         p.spawn((
-    //             bevy_mod_billboard::BillboardText::default(),
-    //             bevy_mod_billboard::BillboardDepth(false),
-    //             TextLayout::new_with_justify(JustifyText::Left),
-    //             Transform::from_translation(Vec3::new(
-    //                 0.0,
-    //                 sun_radius / parameters.unit_scale * 2.0,
-    //                 0.0,
-    //             ))
-    //             .with_scale(Vec3::splat(0.0001)),
-    //         ))
-    //         .with_child((
-    //             TextSpan::new("Sun"),
-    //             TextFont::default().with_font_size(60.0),
-    //             TextColor::from(Color::WHITE),
-    //         ));
-    //     })
-    //     .id();
-
-    // commands.insert_resource(Sun(sun));
 
     let name_offset_au = 0.005;
 
@@ -106,6 +29,7 @@ pub fn initialize_bodies_system(
                             radius: body.data.radius,
                         })),
                         MeshMaterial3d(materials.add(StandardMaterial {
+                            base_color: Color::WHITE,
                             base_color_texture: body.metadata.texture.clone(),
                             emissive_texture: body.metadata.texture.clone(),
                             emissive: LinearRgba::new(2.0, 1.0, 1.0, 1.0),
@@ -153,7 +77,10 @@ pub fn initialize_bodies_system(
                         radius: body.data.radius,
                     })),
                     MeshMaterial3d(materials.add(StandardMaterial {
-                        base_color: body.metadata.color,
+                        base_color: match &body.metadata.texture {
+                            Some(_) => Color::WHITE,
+                            None => body.metadata.color,
+                        },
                         base_color_texture: body.metadata.texture,
                         ..default()
                     })),
@@ -161,6 +88,23 @@ pub fn initialize_bodies_system(
                 ));
 
                 entity.with_children(|parent| {
+                    if body.metadata.name == Some("Saturn".to_string()) {
+                        parent.spawn((
+                            /// TODO too faint, should probably use shader as initially planned
+                            Mesh3d(meshes.add(Mesh::from(Plane3d {
+                                half_size: Vec2::new(
+                                    body.data.radius * 5.0,
+                                    body.data.radius * 5.0,
+                                ),
+                                ..Default::default()
+                            }))),
+                            MeshMaterial3d(materials.add(StandardMaterial {
+                                base_color_texture: Some(asset_server.load("saturn_rings.png")),
+                                ..default()
+                            })),
+                        ));
+                    }
+
                     if body.metadata.name.is_none() {
                         return;
                     }

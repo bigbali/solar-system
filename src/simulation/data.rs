@@ -112,7 +112,17 @@ pub fn load_data() -> Option<Vec<Body>> {
 
             let data: Vec<Body> = serde_json::from_str(&contents).unwrap();
 
-            info!("Successfully loaded data for {} bodies:", data.len());
+            info!(
+                "Successfully loaded data for {} bodies:",
+                data.len()
+                    + data.iter().fold(0, |acc, b| {
+                        acc + b
+                            .satellites
+                            .as_ref()
+                            .and_then(|s| Some(s.len()))
+                            .unwrap_or(0)
+                    })
+            );
 
             for body in &data {
                 let name = body

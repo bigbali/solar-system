@@ -1,16 +1,19 @@
+use std::{fmt, sync::Arc};
+
 use bevy::color::LinearRgba;
 
 use crate::ui::{apply_button_color, clear_button_color, UiColor};
 
 use super::{Border, Override, UiNode};
 
+#[derive(Debug, Clone)]
 pub struct Button {
     pub width: f32,
     pub height: f32,
     pub border: Border,
     pub background: UiColor,
     pub label: String,
-    pub on_click: Option<Box<dyn Fn()>>,
+    pub on_click: OnClickCallback,
 }
 
 impl Default for Button {
@@ -24,7 +27,7 @@ impl Default for Button {
             },
             background: UiColor::from(LinearRgba::BLACK),
             label: "Button".to_string(),
-            on_click: None,
+            on_click: OnClickCallback(None),
         }
     }
 }
@@ -59,7 +62,9 @@ impl UiNode for Button {
         let b = context.push_style_color(imgui::StyleColor::Border, self.border.color);
 
         if context.button_with_size(self.label.clone(), [width, height]) {
-            self.on_click.as_ref().unwrap()();
+            if let Some(callback) = &self.on_click.0 {
+                callback();
+            }
         }
 
         clear_button_color(color_stack);
@@ -73,4 +78,13 @@ impl UiNode for Button {
 
 pub trait ButtonChild {
     fn button(&mut self, button: Button) -> &mut Button;
+}
+
+#[derive(Clone)]
+pub struct OnClickCallback(pub Option<Arc<dyn Fn()>>);
+
+impl fmt::Debug for OnClickCallback {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("OnClick Closure")
+    }
 }

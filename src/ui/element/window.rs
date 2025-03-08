@@ -1,8 +1,14 @@
+use bevy::color::LinearRgba;
 use imgui::Condition;
 
-use crate::ui::util::{id, with_color_scheme};
+use crate::ui::{
+    util::{id, with_color_scheme},
+    UiColor,
+};
 
-use super::{flex::Flex, Override, UiElement, UiNode};
+use super::{
+    flex::Flex, Border, Computed, Override, ParentProperties, Size, SizeOverride, UiElement, UiNode,
+};
 
 pub struct WindowBuilder<'a> {
     window: &'a mut Window,
@@ -72,27 +78,105 @@ impl Default for WindowDimension {
 }
 
 pub struct Window {
-    pub title: String,
-    pub title_bar: bool,
-    pub displayed: bool,
-    pub fixed: bool,
-    pub resizable: bool,
-    pub width: WindowDimension,
-    pub height: WindowDimension,
-    pub position: WindowPosition,
-    pub padding: f32,
-    pub children: Vec<UiElement>,
+    title: String,
+    title_bar: bool,
+    border: Border,
+    displayed: bool,
+    fixed: bool,
+    resizable: bool,
+    background: UiColor,
+    // pub width: Size,
+    // pub height: Size,
+    width: WindowDimension,
+    height: WindowDimension,
+    position: WindowPosition,
+    padding: f32,
+    children: Vec<UiElement>,
+    computed_width: f32,
+    computed_height: f32,
+}
+
+// impl UiNode for Window {
+//     fn get_width(&self) -> Size {
+//         self.width
+//     }
+
+//     fn get_height(&self) -> Size {
+//         self.height
+//     }
+
+//     fn get_border(&self) -> Border {
+//         self.border
+//     }
+
+//     fn build(
+//         &self,
+//         context: &imgui::Ui,
+//         draw_list: &imgui::DrawListMut,
+//         cascading_override: Override,
+//     ) {
+//         self.build_window(context, draw_list, cascading_override, self);
+//     }
+// }
+
+impl Window {
+    fn compute_initial_size(
+        bevy_window: bevy::window::Window,
+        width: WindowDimension,
+        height: WindowDimension,
+    ) -> (f32, f32) {
+        let bevy_window_width = bevy_window.width();
+        let bevy_window_height = bevy_window.height();
+
+        let width = match width {
+            WindowDimension::Fixed(width) => width,
+            WindowDimension::Percentage(percentage) => bevy_window_width * (percentage / 100.0),
+            WindowDimension::Stretch => bevy_window_width,
+        };
+
+        let height = match height {
+            WindowDimension::Fixed(height) => height,
+            WindowDimension::Percentage(percentage) => bevy_window_height * (percentage / 100.0),
+            WindowDimension::Stretch => bevy_window_height,
+        };
+
+        return (width, height);
+    }
+
+    fn compute_children_size(&mut self) {
+        let self_properties = ParentProperties {
+            computed_width: Some(self.computed_width),
+            computed_height: Some(self.computed_height),
+
+            // Since the sizes are already known before we start computing the children,
+            // we can set them to be fixed.
+            width_sizing: &Size::Pixels(self.computed_width),
+            height_sizing: &Size::Pixels(self.computed_height),
+        };
+
+        for child in self.children.iter_mut() {
+            child.compute_size(&self_properties);
+        }
+    }
 }
 
 impl Window {
-    pub fn new() -> Self {
+    pub fn new(
+        bevy_window: bevy::window::Window,
+        width: WindowDimension,
+        height: WindowDimension,
+    ) -> Self {
+        let (w, h) = Self::compute_initial_size(bevy_window, width, height);
+
         Self {
             children: Vec::new(),
             title: id(),
             title_bar: true,
+            border: Border::default(),
             displayed: true,
             resizable: false,
             fixed: true,
+            background: UiColor::from(LinearRgba::new(0.1, 0.1, 0.1, 1.0)),
             width: WindowDimension::Fixed(800.0),
             height: WindowDimension::Fixed(600.0),
             position: WindowPosition {
@@ -100,6 +184,8 @@ impl Window {
                 y: WindowPlacement::Manual(0.0),
             },
             padding: 8.0,
+            computed_width: w,
+            computed_height: h,
         }
     }
 
@@ -139,26 +225,14 @@ impl Window {
         self
     }
 
-    pub fn build(&mut self, context: &imgui::Ui, bevy_window: &bevy::window::Window) {
+    pub fn build_window(&mut self, context: &imgui::Ui, bevy_window: &bevy::window::Window) {
         with_color_scheme(context, || {
-            let draw_list = context.get_window_draw_list();
-            let style_stack = vec![context
-                .push_style_var(imgui::StyleVar::WindowPadding([self.padding, self.padding]))];
-
             let bevy_window_width = bevy_window.width();
-            let bevy_window_height = bevy_window.width();
+            let bevy_window_height = bevy_window.height();
 
-            let width = match self.width {
-                WindowDimension::Fixed(width) => width,
-                WindowDimension::Percentage(percentage) => bevy_window_width * percentage,
-                WindowDimension::Stretch => bevy_window_width,
-            };
+            self.compute_children_size();
 
-            let height = match self.height {
-                WindowDimension::Fixed(height) => height,
-                WindowDimension::Percentage(percentage) => bevy_window_height * percentage,
-                WindowDimension::Stretch => bevy_window_height,
-            };
+            let (width, height) = (self.computed_width, self.computed_height);
 
             let position_x = match &self.position.x {
                 WindowPlacement::Manual(x) => *x,
@@ -189,24 +263,37 @@ impl Window {
             };
 
             println!(
-                "position_x: {}, position_y: {}, width: {}, height: {}",
-                position_x, position_y, width, height
+                "position_x: {}, position_y: {}, width: {}, height: {}, bevy height: {}",
+                position_x, position_y, width, height, bevy_window_height
             );
 
-            context
+            let style_stack = vec![context
+                .push_style_var(imgui::StyleVar::WindowPadding([self.padding, self.padding]))];
+
+            let c = context.push_style_color(imgui::StyleColor::WindowBg, self.background);
+
+            let ax = context
                 .window(self.title.clone())
                 .title_bar(self.title_bar)
                 .position([position_x, position_y], position_condition)
                 .size([width, height], size_condition)
-                .build(|| {
-                    for child in self.children.iter_mut() {
-                        child.build(&context, &draw_list, Override::default());
-                    }
-                });
+                .movable(!self.fixed)
+                .resizable(self.resizable)
+                .begin();
+
+            let draw_list = context.get_window_draw_list();
+
+            for (i, child) in self.children.iter_mut().enumerate() {
+                child.build(&context, &draw_list, Override::default());
+            }
 
             for style in style_stack {
                 style.pop();
             }
+
+            c.pop();
+
+            ax.unwrap().end();
         });
     }
 }
