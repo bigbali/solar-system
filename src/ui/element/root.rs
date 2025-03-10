@@ -1,4 +1,4 @@
-use super::{flex::Flex, Override, UiElement, UiNode};
+use super::{flex::Flex, UiElement, UiNode};
 
 pub struct RootBuilder<'a> {
     parent: &'a mut RootNode,
@@ -46,7 +46,7 @@ impl RootNode {
         let draw_list = context.get_window_draw_list();
 
         for child in &mut self.children {
-            child.build(&context, &draw_list, Override::default());
+            child.build(&context, &draw_list /* Override::default() */);
         }
 
         context.new_line();

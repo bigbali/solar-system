@@ -64,7 +64,7 @@ pub fn left_window_system(
                 ui.checkbox("Border", unsafe { &mut BORDER });
                 ui.checkbox("H auto", unsafe { &mut HAUTO });
 
-                let items = vec!["Left", "Right", "Between", "Stretch"];
+                let items = vec!["Left", "Right", "Between" /* , "Stretch" */];
                 if let Some(cb) = ui.begin_combo(
                     "##Combo",
                     format!("Axis: {}", items[unsafe { ALIGN_AXIS_SELECT }]),
@@ -88,7 +88,7 @@ pub fn left_window_system(
                             ALIGN_AXIS = match items[ALIGN_AXIS_SELECT] {
                                 "Right" => FlexAxisAlign::End,
                                 "Between" => FlexAxisAlign::Between,
-                                "Stretch" => FlexAxisAlign::Stretch,
+                                // "Stretch" => FlexAxisAlign::Stretch,
                                 _ => FlexAxisAlign::Start,
                             }
                         }
@@ -119,7 +119,7 @@ pub fn left_window_system(
                                 "Start" => FlexCrossAxisAlign::Start,
                                 "End" => FlexCrossAxisAlign::End,
                                 "Center" => FlexCrossAxisAlign::Center,
-                                "Stretch" => FlexCrossAxisAlign::Stretch,
+                                // "Stretch" => FlexCrossAxisAlign::Stretch,
                                 _ => FlexCrossAxisAlign::Start,
                             }
                         }

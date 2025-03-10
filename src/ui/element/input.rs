@@ -9,7 +9,7 @@ use bevy::color::LinearRgba;
 
 use crate::ui::UiColor;
 
-use super::{Border, Override, UiNode};
+use super::{Border, Size, UiElementType, UiNode};
 
 thread_local! {
     static DROPDOWN_SELECTED_MAP: RefCell<HashMap<usize, i32>> = RefCell::new(HashMap::new());
@@ -21,8 +21,8 @@ thread_local! {
 
 pub struct InputI32 {
     pub id: usize,
-    pub width: f32,
-    pub height: f32,
+    pub width: Size,
+    pub height: Size,
     pub border: Border,
     pub background: UiColor,
     pub label: String,
@@ -53,12 +53,30 @@ impl InputI32 {
     // }
 }
 
+impl Drop for InputI32 {
+    fn drop(&mut self) {
+        DROPDOWN_SELECTED_MAP.with_borrow_mut(|map| {
+            map.remove(&self.id);
+        });
+
+        DROPDOWN_ID_INCR.with(|incr| {
+            incr.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| {
+                if v == 0 {
+                    None
+                } else {
+                    Some(0)
+                }
+            });
+        });
+    }
+}
+
 impl Default for InputI32 {
     fn default() -> Self {
         Self {
             id: InputI32::id_that_will_not_work_in_immediate_mode_oopsies(),
-            width: 120.0,
-            height: 48.0,
+            width: Size::Pixels(120.0),
+            height: Size::Pixels(48.0),
             border: Border {
                 size: 0.0,
                 color: UiColor::from(LinearRgba::BLACK),
@@ -74,23 +92,31 @@ impl Default for InputI32 {
 }
 
 impl UiNode for InputI32 {
-    fn get_width(&self) -> f32 {
-        self.width
+    fn get_width(&self) -> &Size {
+        &self.width
     }
 
-    fn get_height(&self) -> f32 {
-        self.height
+    fn get_height(&self) -> &Size {
+        &self.height
     }
 
     fn get_border(&self) -> Border {
         self.border
     }
 
+    fn get_children(&self) -> Option<&Vec<super::UiElement>> {
+        None
+    }
+
+    fn get_type(&self) -> UiElementType {
+        UiElementType::InputI32
+    }
+
     fn build(
         &self,
         context: &imgui::Ui,
         draw_list: &imgui::DrawListMut,
-        cascading_override: Override,
+        // cascading_override: Override,
     ) {
         // if self.values.is_empty() {
         //     return;

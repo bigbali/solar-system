@@ -1,4 +1,4 @@
-use bevy::color::LinearRgba;
+use bevy::{color::LinearRgba, log::error, log::warn};
 use imgui::Condition;
 
 use crate::ui::{
@@ -7,25 +7,26 @@ use crate::ui::{
 };
 
 use super::{
-    flex::Flex, Border, Computed, Override, ParentProperties, Size, SizeOverride, UiElement, UiNode,
+    flex::Flex, Border, Computed, ParentProperties, Size, SizeOverride, UiElement, UiNode,
 };
 
 pub struct WindowBuilder<'a> {
-    window: &'a mut Window,
+    window: &'a mut UiWindow,
 }
 
 impl<'a> WindowBuilder<'a> {
-    pub fn flex_default(&mut self) -> &mut Flex {
-        self.window.children.push(UiElement::Flex(Flex::default()));
+    // pub fn flex_default(&mut self) -> &mut Flex {
+    //     self.window.children.push(UiElement::Flex(Flex::default()));
 
-        match self.window.children.last_mut().unwrap() {
-            UiElement::Flex(flex) => flex,
-            _ => unreachable!("Flex is not flexing :("),
-        }
-    }
+    //     match self.window.children.last_mut().unwrap() {
+    //         UiElement::Flex(flex) => flex,
+    //         _ => unreachable!("Flex is not flexing :("),
+    //     }
+    // }
 
-    pub fn flex(&mut self, flex: Flex) -> &mut Flex {
-        self.window.children.push(UiElement::Flex(flex));
+    // todo make this macro
+    pub fn flex(&mut self) -> &mut Flex {
+        self.window.children.push(UiElement::Flex(Flex::new()));
 
         match self.window.children.last_mut().unwrap() {
             UiElement::Flex(flex) => flex,
@@ -66,23 +67,23 @@ pub struct WindowPosition {
 
 #[derive(Debug, Clone)]
 pub enum WindowDimension {
-    Fixed(f32),
+    Pixels(f32),
     Percentage(f32),
-    Stretch,
+    // Stretch, // Actually, this is effectively the same as Percentage(100.0). Bye then, good old Stretch.
 }
 
 impl Default for WindowDimension {
     fn default() -> Self {
-        Self::Fixed(800.0)
+        Self::Pixels(800.0)
     }
 }
 
-pub struct Window {
+pub struct UiWindow {
     title: String,
     title_bar: bool,
     border: Border,
     displayed: bool,
-    fixed: bool,
+    movable: bool,
     resizable: bool,
     background: UiColor,
     // pub width: Size,
@@ -96,32 +97,9 @@ pub struct Window {
     computed_height: f32,
 }
 
-// impl UiNode for Window {
-//     fn get_width(&self) -> Size {
-//         self.width
-//     }
-
-//     fn get_height(&self) -> Size {
-//         self.height
-//     }
-
-//     fn get_border(&self) -> Border {
-//         self.border
-//     }
-
-//     fn build(
-//         &self,
-//         context: &imgui::Ui,
-//         draw_list: &imgui::DrawListMut,
-//         cascading_override: Override,
-//     ) {
-//         self.build_window(context, draw_list, cascading_override, self);
-//     }
-// }
-
-impl Window {
+impl UiWindow {
     fn compute_initial_size(
-        bevy_window: bevy::window::Window,
+        bevy_window: &bevy::window::Window,
         width: WindowDimension,
         height: WindowDimension,
     ) -> (f32, f32) {
@@ -129,21 +107,59 @@ impl Window {
         let bevy_window_height = bevy_window.height();
 
         let width = match width {
-            WindowDimension::Fixed(width) => width,
+            WindowDimension::Pixels(width) => width,
             WindowDimension::Percentage(percentage) => bevy_window_width * (percentage / 100.0),
-            WindowDimension::Stretch => bevy_window_width,
+            // WindowDimension::Stretch => bevy_window_width,
         };
 
         let height = match height {
-            WindowDimension::Fixed(height) => height,
+            WindowDimension::Pixels(height) => height,
             WindowDimension::Percentage(percentage) => bevy_window_height * (percentage / 100.0),
-            WindowDimension::Stretch => bevy_window_height,
+            // WindowDimension::Stretch => bevy_window_height,
         };
 
         return (width, height);
     }
 
     fn compute_children_size(&mut self) {
+        if self.children.len() == 0 {
+            panic!("Window with title '{}' has no children.", self.title);
+        }
+
+        if self.children.len() > 1 {
+            panic!("Window with title '{}' has more than 1 child. \
+                    For now, only 1 child per root container is allowed, because it's not worth the time \
+                    to implement layout logic for the window element. \
+                    Use a single Flex child, and do your layout there.", self.title);
+        }
+
+        // NOTE: let's not implement flexbox rendering for now, lol.
+        // let mut total_fixed_size = 0.0;
+        // let mut total_percentage = 0.0;
+        // let mut auto_count = 0_u8;
+
+        // for child in &mut self.children {
+        //     match child.get_width() {
+        //         Size::Pixels(p) => total_fixed_size += p,
+        //         Size::Percentage(p) => total_percentage += p,
+        //         Size::Auto => auto_count += 1,
+        //     }
+        // }
+
+        // let gap_count = self.children.len() - 1;
+
+        // // gap space should probably be considered as occupied
+        // let total_occupied_space =
+        //     total_fixed_size + (total_percentage * self.computed_width / 100.0);
+
+        // let available_space = self.computed_width - total_occupied_space;
+
+        // let auto_size = if auto_count > 0 {
+        //     available_space / auto_count as f32
+        // } else {
+        //     0.0
+        // };
+
         let self_properties = ParentProperties {
             computed_width: Some(self.computed_width),
             computed_height: Some(self.computed_height),
@@ -152,21 +168,34 @@ impl Window {
             // we can set them to be fixed.
             width_sizing: &Size::Pixels(self.computed_width),
             height_sizing: &Size::Pixels(self.computed_height),
+            padding: self.padding,
         };
 
-        for child in self.children.iter_mut() {
-            child.compute_size(&self_properties);
+        // NOTE: we are allowing exactly 0 or 1 child for now
+        for child in &mut self.children {
+            child.set_computed_width(match child.get_width() {
+                Size::Pixels(p) => *p,
+                Size::Percentage(p) => self.computed_width * p / 100.0,
+                Size::Auto => self.computed_width - (self.padding * 2.0),
+            });
+            child.set_computed_height(match child.get_height() {
+                Size::Pixels(p) => *p,
+                Size::Percentage(p) => self.computed_height * p / 100.0,
+                Size::Auto => self.computed_height - (self.padding * 2.0),
+            });
+
+            child.compute_children_size(&self_properties);
         }
     }
 }
 
-impl Window {
+impl UiWindow {
     pub fn new(
-        bevy_window: bevy::window::Window,
+        bevy_window: &bevy::window::Window,
         width: WindowDimension,
         height: WindowDimension,
     ) -> Self {
-        let (w, h) = Self::compute_initial_size(bevy_window, width, height);
+        let (w, h) = Self::compute_initial_size(&bevy_window, width, height);
 
         Self {
             children: Vec::new(),
@@ -175,10 +204,10 @@ impl Window {
             border: Border::default(),
             displayed: true,
             resizable: false,
-            fixed: true,
+            movable: false,
             background: UiColor::from(LinearRgba::new(0.1, 0.1, 0.1, 1.0)),
-            width: WindowDimension::Fixed(800.0),
-            height: WindowDimension::Fixed(600.0),
+            width: WindowDimension::Pixels(800.0),
+            height: WindowDimension::Pixels(600.0),
             position: WindowPosition {
                 x: WindowPlacement::Manual(0.0),
                 y: WindowPlacement::Manual(0.0),
@@ -189,8 +218,8 @@ impl Window {
         }
     }
 
-    pub fn title(&mut self, title: String) -> &mut Self {
-        self.title = title;
+    pub fn title(&mut self, v: String) -> &mut Self {
+        self.title = v;
         self
     }
 
@@ -199,8 +228,8 @@ impl Window {
         self
     }
 
-    pub fn displayed(&mut self, title: String) -> &mut Self {
-        self.title = title;
+    pub fn displayed(&mut self, v: bool) -> &mut Self {
+        self.displayed = v;
         self
     }
 
@@ -219,18 +248,38 @@ impl Window {
         self
     }
 
+    pub fn movable(&mut self, v: bool) -> &mut Self {
+        self.movable = v;
+        self
+    }
+
+    pub fn resizable(&mut self, v: bool) -> &mut Self {
+        self.resizable = v;
+        self
+    }
+
+    pub fn background(&mut self, v: UiColor) -> &mut Self {
+        self.background = v;
+        self
+    }
+
+    pub fn padding(&mut self, v: f32) -> &mut Self {
+        self.padding = v;
+        self
+    }
+
     pub fn children(&mut self, f: impl FnOnce(&mut WindowBuilder)) -> &mut Self {
         let mut builder = WindowBuilder { window: self };
         f(&mut builder);
         self
     }
 
-    pub fn build_window(&mut self, context: &imgui::Ui, bevy_window: &bevy::window::Window) {
+    pub fn build(&mut self, context: &imgui::Ui, bevy_window: &bevy::window::Window) {
         with_color_scheme(context, || {
+            self.compute_children_size();
+
             let bevy_window_width = bevy_window.width();
             let bevy_window_height = bevy_window.height();
-
-            self.compute_children_size();
 
             let (width, height) = (self.computed_width, self.computed_height);
 
@@ -252,7 +301,7 @@ impl Window {
                 },
             };
 
-            let position_condition = match self.fixed {
+            let position_condition = match self.movable {
                 true => imgui::Condition::Always,
                 false => imgui::Condition::FirstUseEver,
             };
@@ -262,38 +311,34 @@ impl Window {
                 true => imgui::Condition::FirstUseEver,
             };
 
-            println!(
-                "position_x: {}, position_y: {}, width: {}, height: {}, bevy height: {}",
-                position_x, position_y, width, height, bevy_window_height
-            );
-
             let style_stack = vec![context
                 .push_style_var(imgui::StyleVar::WindowPadding([self.padding, self.padding]))];
 
-            let c = context.push_style_color(imgui::StyleColor::WindowBg, self.background);
+            let background_token =
+                context.push_style_color(imgui::StyleColor::WindowBg, self.background);
 
-            let ax = context
+            let window_token = context
                 .window(self.title.clone())
                 .title_bar(self.title_bar)
                 .position([position_x, position_y], position_condition)
                 .size([width, height], size_condition)
-                .movable(!self.fixed)
+                .movable(self.movable)
                 .resizable(self.resizable)
                 .begin();
 
             let draw_list = context.get_window_draw_list();
 
-            for (i, child) in self.children.iter_mut().enumerate() {
-                child.build(&context, &draw_list, Override::default());
+            for (_i, child) in self.children.iter_mut().enumerate() {
+                child.build(&context, &draw_list /* Override::default() */);
             }
 
             for style in style_stack {
                 style.pop();
             }
 
-            c.pop();
+            background_token.pop();
 
-            ax.unwrap().end();
+            window_token.unwrap().end();
         });
     }
 }

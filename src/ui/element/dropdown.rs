@@ -15,7 +15,7 @@ use bevy::{color::LinearRgba, reflect::Type};
 
 use crate::ui::{apply_button_color, clear_button_color, UiColor};
 
-use super::{Border, Override, UiElement, UiNode};
+use super::{Border, Computed, Size, UiElement, UiElementType, UiNode};
 
 thread_local! {
     static DROPDOWN_SELECTED_MAP: RefCell<HashMap<usize, usize>> = RefCell::new(HashMap::new());
@@ -37,13 +37,15 @@ where
     T: PartialEq,
 {
     pub id: usize,
-    pub width: f32,
-    pub height: f32,
+    pub width: Size,
+    pub height: Size,
     pub border: Border,
     pub background: UiColor,
     pub label: String,
     pub on_select: OnSelectCallback<T>,
     pub values: Vec<DropdownValue<T>>,
+    pub computed_width: Option<f32>,
+    pub computed_height: Option<f32>,
 }
 
 impl Dropdown<()> {
@@ -92,12 +94,30 @@ impl<T: PartialEq + Clone> Dropdown<T> {
     }
 }
 
+impl<T: PartialEq> Drop for Dropdown<T> {
+    fn drop(&mut self) {
+        DROPDOWN_SELECTED_MAP.with_borrow_mut(|map| {
+            map.remove(&self.id);
+        });
+
+        DROPDOWN_ID_INCR.with(|incr| {
+            incr.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| {
+                if v == 0 {
+                    None
+                } else {
+                    Some(0)
+                }
+            });
+        });
+    }
+}
+
 impl<T: PartialEq> Default for Dropdown<T> {
     fn default() -> Self {
         Self {
             id: Dropdown::id_that_will_not_work_in_immediate_mode_oopsies(),
-            width: 120.0,
-            height: 48.0,
+            width: Size::Pixels(120.0),
+            height: Size::Pixels(120.0),
             border: Border {
                 size: 0.0,
                 color: UiColor::from(LinearRgba::BLACK),
@@ -106,44 +126,81 @@ impl<T: PartialEq> Default for Dropdown<T> {
             label: "Button".to_string(),
             on_select: OnSelectCallback(None),
             values: Vec::new(),
+            computed_width: None,
+            computed_height: None,
         }
     }
 }
 
-impl<T: PartialEq + Clone> UiNode for Dropdown<T> {
-    fn get_width(&self) -> f32 {
-        self.width
+impl<T: PartialEq> Computed for Dropdown<T> {
+    fn get_computed_width(&self) -> Option<f32> {
+        self.computed_width
     }
 
-    fn get_height(&self) -> f32 {
-        self.height
+    fn set_computed_width(&mut self, new_width: f32) {
+        self.computed_width = Some(new_width);
+    }
+
+    fn get_computed_height(&self) -> Option<f32> {
+        self.computed_height
+    }
+
+    fn set_computed_height(&mut self, new_height: f32) {
+        self.computed_height = Some(new_height);
+    }
+
+    // Dropdown has no children.
+    fn compute_children_size(&mut self, _parent_properties: &super::ParentProperties) {}
+}
+
+impl<T: PartialEq + Clone> UiNode for Dropdown<T> {
+    fn get_width(&self) -> &Size {
+        &self.width
+    }
+
+    fn get_height(&self) -> &Size {
+        &self.height
     }
 
     fn get_border(&self) -> Border {
         self.border
     }
 
+    fn get_children(&self) -> Option<&Vec<UiElement>> {
+        None
+    }
+
+    fn get_type(&self) -> UiElementType {
+        UiElementType::Dropdown
+    }
+
     fn build(
         &self,
         context: &imgui::Ui,
         draw_list: &imgui::DrawListMut,
-        cascading_override: Override,
+        // cascading_override: Override,
     ) {
         if self.values.is_empty() {
             return;
         }
 
-        let width = match cascading_override.width {
-            Some(width) => width,
-            None => self.width,
-        };
+        assert!(self.computed_width.is_some(), "Computed width is unset.");
+        assert!(self.computed_height.is_some(), "Computed height is unset.");
 
-        let height = match cascading_override.height {
-            Some(height) => height,
-            None => self.height,
-        };
+        // let width = match cascading_override.width {
+        //     Some(width) => width,
+        //     None => self.width,
+        // };
 
-        let w = context.push_item_width(width);
+        // let height = match cascading_override.height {
+        //     Some(height) => height,
+        //     None => self.height,
+        // };
+
+        let width = self.computed_width.unwrap();
+        let height = self.computed_height.unwrap();
+
+        let item_width_token = context.push_item_width(width);
 
         if let Some(cb) = context.begin_combo(self.label.clone(), self.get_label()) {
             let current: usize = self.get_current_index();
@@ -158,7 +215,7 @@ impl<T: PartialEq + Clone> UiNode for Dropdown<T> {
 
                 let clicked = context
                     .selectable_config(label)
-                    .size([self.width, self.height / self.values.len() as f32])
+                    .size([width, height / self.values.len() as f32])
                     .selected(current == i)
                     .build();
 
@@ -174,7 +231,7 @@ impl<T: PartialEq + Clone> UiNode for Dropdown<T> {
             cb.end();
         }
 
-        w.end();
+        item_width_token.end();
         println!(
             "selected {:?}",
             DROPDOWN_SELECTED_MAP.with_borrow(|m| m.clone())
@@ -183,11 +240,11 @@ impl<T: PartialEq + Clone> UiNode for Dropdown<T> {
 }
 
 impl UiNode for DropdownBox {
-    fn get_width(&self) -> f32 {
+    fn get_width(&self) -> &Size {
         self.inner.get_width()
     }
 
-    fn get_height(&self) -> f32 {
+    fn get_height(&self) -> &Size {
         self.inner.get_height()
     }
 
@@ -195,14 +252,52 @@ impl UiNode for DropdownBox {
         self.inner.get_border()
     }
 
+    fn get_children(&self) -> Option<&Vec<UiElement>> {
+        self.inner.get_children()
+    }
+
+    fn get_type(&self) -> UiElementType {
+        self.inner.get_type()
+    }
+
     fn build(
         &self,
         context: &imgui::Ui,
         draw_list: &imgui::DrawListMut,
-        cascading_override: Override,
+        // cascading_override: Override,
     ) {
-        self.inner.build(context, draw_list, cascading_override);
+        self.inner
+            // .borrow()
+            .build(context, draw_list /* cascading_override */);
     }
+}
+
+impl Computed for DropdownBox {
+    fn get_computed_width(&self) -> Option<f32> {
+        self.inner.get_computed_width()
+
+        // Rc::(&mut self.inner).and_then(|inner| inner.get_mut().get_computed_width())
+    }
+
+    fn set_computed_width(&mut self, new_width: f32) {
+        Rc::get_mut(&mut self.inner)
+            .unwrap()
+            .set_computed_width(new_width);
+        // self.inner.borrow_mut().set_computed_width(new_width);
+    }
+
+    fn get_computed_height(&self) -> Option<f32> {
+        self.inner.get_computed_height()
+    }
+
+    fn set_computed_height(&mut self, new_height: f32) {
+        Rc::get_mut(&mut self.inner)
+            .unwrap()
+            .set_computed_height(new_height);
+    }
+
+    // Dropdown has no children.
+    fn compute_children_size(&mut self, _parent_properties: &super::ParentProperties) {}
 }
 
 pub trait DropdownChild {
@@ -212,13 +307,13 @@ pub trait DropdownChild {
     ) -> &mut Dropdown<T>;
 }
 
-pub trait ErasedDropdown: std::any::Any + UiNode {
-    fn as_any(&self) -> &dyn std::any::Any;
+pub trait ErasedDropdown: Any + UiNode + Computed {
+    fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 impl<T: 'static + PartialEq + Clone> ErasedDropdown for Dropdown<T> {
-    fn as_any(&self) -> &dyn std::any::Any {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 
@@ -230,20 +325,22 @@ impl<T: 'static + PartialEq + Clone> ErasedDropdown for Dropdown<T> {
 #[derive(Clone)]
 pub struct DropdownBox {
     pub inner: Rc<dyn ErasedDropdown>,
+    // pub inner: Rc<RefCell<dyn ErasedDropdown>>,
 }
 
 impl DropdownBox {
     pub fn new<T: 'static + PartialEq + Clone>(dropdown: Dropdown<T>) -> Self {
         Self {
+            // inner: Rc::new(RefCell::new(dropdown)),
             inner: Rc::new(dropdown),
         }
     }
 
     pub fn downcast_mut<T: PartialEq + 'static>(&mut self) -> Option<&mut Dropdown<T>> {
-        // self.inner.as_any_mut().downcast_mut::<Dropdown<T>>()
-
         Rc::get_mut(&mut self.inner)
             .and_then(|inner| inner.as_any_mut().downcast_mut::<Dropdown<T>>())
+        // Rc::get_mut(&mut self.inner)
+        //     .and_then(|inner| inner.get_mut().as_any_mut().downcast_mut::<Dropdown<T>>())
     }
 }
 
