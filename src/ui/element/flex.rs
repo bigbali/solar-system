@@ -8,7 +8,8 @@ use crate::ui::UiColor;
 use super::{
     button::{Button, ButtonChild},
     dropdown::{Dropdown, DropdownBox, DropdownChild},
-    Border, Computed, ParentProperties, Size, SizeOverride, UiElement, UiElementType, UiNode,
+    text::{Text, TextChild},
+    Border, Computed, ParentProperties, Size, UiElement, UiElementType, UiNode,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -17,7 +18,6 @@ pub enum FlexAxisAlign {
     End,
     Center,
     Between,
-    // Stretch,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -31,76 +31,27 @@ pub enum FlexCrossAxisAlign {
     Start,
     End,
     Center,
-    // Stretch,
 }
 
 pub struct FlexBuilder<'a> {
     parent: &'a mut Flex,
 }
 
-impl<'a> FlexBuilder<'a> {
-    // pub fn flex_default(&mut self) -> &mut Flex {
-    //     self.parent.children.push(UiElement::Flex(Flex::default()));
-
-    //     match self.parent.children.last_mut().unwrap() {
-    //         UiElement::Flex(flex) => flex,
-    //         _ => unreachable!("Flex is not flexing :("),
-    //     }
-    // }
-
-    // TODO impl flexchild for flexbuilder
-    // pub fn flex(&mut self, flex: Flex) -> &mut Flex {
-    //     self.parent.children.push(UiElement::Flex(flex));
-
-    //     match self.parent.children.last_mut().unwrap() {
-    //         UiElement::Flex(flex) => flex,
-    //         _ => unreachable!("Flex is not flexing :("),
-    //     }
-    // }
-
-    pub fn flex(&mut self) -> &mut Flex {
-        self.parent.children.push(UiElement::Flex(Flex::new()));
-
-        match self.parent.children.last_mut().unwrap() {
-            UiElement::Flex(flex) => flex,
-            _ => unreachable!("Flex is not flexing :("),
-        }
-    }
-
-    pub fn parent_width(&self) -> &Size {
-        &self.parent.width
-    }
-
-    pub fn parent_height(&self) -> &Size {
-        &self.parent.height
-    }
-}
-
-// #[derive(Debug, Clone)]
-// pub enum FlexChildSizeOverride {
-//     Percentage(f32),
-//     Pixels(f32),
-// }
-
 #[derive(Debug, Clone)]
 pub struct Flex {
     axis_align_items: FlexAxisAlign,
     cross_axis_align_items: FlexCrossAxisAlign,
     direction: FlexDirection,
-    // pub axis_size_override: HashMap<usize, FlexChildSizeOverride>,
-    // pub cross_axis_size_override: HashMap<usize, FlexChildSizeOverride>,
     gap: f32,
     width: Size,
     height: Size,
-    border: Border,
+    border: Option<Border>,
     padding: f32,
-    // pub fill_parent: bool,
     fill: Option<UiColor>,
     children: Vec<UiElement>,
     computed_width: Option<f32>,
     computed_height: Option<f32>,
     computed_axis_available_space: Option<f32>,
-    // pub computed_gap: Option<f32>,
 }
 
 impl Default for Flex {
@@ -109,23 +60,16 @@ impl Default for Flex {
             axis_align_items: FlexAxisAlign::Start,
             cross_axis_align_items: FlexCrossAxisAlign::Start,
             direction: FlexDirection::Row,
-            // axis_size_override: HashMap::new(),
-            // cross_axis_size_override: HashMap::new(),
             gap: 0.0,
             width: Size::Pixels(320.0),
             height: Size::Pixels(60.0),
-            border: Border {
-                size: 0.0,
-                color: UiColor::from(LinearRgba::BLACK),
-            },
+            border: None,
             padding: 0.0,
-            // fill_parent: false,
             fill: None,
             children: Vec::new(),
             computed_width: None,
             computed_height: None,
             computed_axis_available_space: None,
-            // computed_gap: None,
         }
     }
 }
@@ -139,7 +83,7 @@ impl UiNode for Flex {
         &self.height
     }
 
-    fn get_border(&self) -> Border {
+    fn get_border(&self) -> Option<Border> {
         self.border
     }
 
@@ -183,7 +127,7 @@ impl Computed for Flex {
         self.computed_height = Some(new_height);
     }
 
-    fn compute_children_size(&mut self, parent_properties: &ParentProperties) {
+    fn compute_children_size(&mut self, _parent_properties: &ParentProperties) {
         assert!(self.computed_width.is_some(), "Computed width is unset.");
         assert!(self.computed_height.is_some(), "Computed height is unset.");
 
@@ -191,23 +135,16 @@ impl Computed for Flex {
             return;
         }
 
+        let border = self.border.and_then(|b| Some(b.size)).unwrap_or(0.0);
+
         let total_width = self.computed_width.unwrap();
-        let available_width = total_width - self.border.size - (self.padding * 2.0);
+        let available_width = total_width - border - (self.padding * 2.0);
         let total_height = self.computed_height.unwrap();
-        let available_height = total_height - self.border.size - (self.padding * 2.0);
+        let available_height = total_height - border - (self.padding * 2.0);
 
         let mut child_axis_pixels = 0.0;
         let mut child_axis_percentage = 0.0;
         let mut child_axis_auto_count = 0_u8;
-
-        // let mut child_cross_axis_pixels = 0.0;
-        // let mut child_cross_axis_percentage = 0.0;
-        // let mut child_cross_axis_auto_count = 0_u8;
-
-        // CONSIDER:
-        // axis:
-        //  - axis-align: start | end | center | between;
-        //  - cross-axis-align: start | end | center | stretch;
 
         // Calculate space distribution along main axis,
         // and set the cross-axis size for each child.
@@ -249,12 +186,21 @@ impl Computed for Flex {
         let gap_count = self.children.len() - 1;
         let total_gap_space = self.gap * gap_count as f32;
 
-        let axis_occupied_space =
-            child_axis_pixels + (child_axis_percentage * available_width / 100.0) + total_gap_space;
-
-        let available_space = match self.direction {
-            FlexDirection::Row => available_width - axis_occupied_space,
-            FlexDirection::Column => available_height - axis_occupied_space,
+        // Calculate the total unfilled space, taking into account all the Pixel and Percentage values
+        // (this space will later be distributed among Auto-sized children, if there are any)
+        let axis_available_space = match self.direction {
+            FlexDirection::Row => {
+                available_width
+                    - (child_axis_pixels
+                        + (child_axis_percentage * available_width / 100.0)
+                        + total_gap_space)
+            }
+            FlexDirection::Column => {
+                available_height
+                    - (child_axis_pixels
+                        + (child_axis_percentage * available_height / 100.0)
+                        + total_gap_space)
+            }
         };
 
         let mut contains_auto = false;
@@ -276,7 +222,7 @@ impl Computed for Flex {
                         Size::Percentage(p) => available_width * p / 100.0,
                         Size::Auto => {
                             contains_auto = true;
-                            available_space / child_axis_auto_count as f32
+                            axis_available_space / child_axis_auto_count as f32
                         }
                     };
                     child.set_computed_width(axis_size);
@@ -287,7 +233,7 @@ impl Computed for Flex {
                         Size::Percentage(p) => available_height * p / 100.0,
                         Size::Auto => {
                             contains_auto = true;
-                            available_space / child_axis_auto_count as f32
+                            axis_available_space / child_axis_auto_count as f32
                         }
                     };
 
@@ -298,9 +244,10 @@ impl Computed for Flex {
             child.compute_children_size(&self_properties);
         }
 
+        // If there are any Auto-sized children, they fill all the available space, thus there is None left
         self.computed_axis_available_space = match contains_auto {
             true => None,
-            false => Some(available_space),
+            false => Some(axis_available_space),
         };
     }
 }
@@ -340,7 +287,7 @@ impl Flex {
         self
     }
 
-    pub fn border(&mut self, border: Border) -> &mut Self {
+    pub fn border(&mut self, border: Option<Border>) -> &mut Self {
         self.border = border;
         self
     }
@@ -356,16 +303,12 @@ impl Flex {
         self
     }
 
-    fn build_row(
-        &self,
-        context: &imgui::Ui,
-        draw_list: &DrawListMut,
-        // cascading_override: Override,
-    ) {
+    fn build_row(&self, context: &imgui::Ui, draw_list: &DrawListMut) {
         assert!(self.computed_width.is_some(), "Computed width is unset.");
         assert!(self.computed_height.is_some(), "Computed height is unset.");
 
-        let halfborder = self.border.size / 2.0;
+        let border = self.border.and_then(|b| Some(b.size)).unwrap_or(0.0);
+        let halfborder = border / 2.0;
 
         let width = self.computed_width.unwrap();
         let height = self.computed_height.unwrap();
@@ -394,10 +337,15 @@ impl Flex {
                 .build();
         }
 
-        if self.border.size > 0.0 {
+        // NOTE if let some self.border???
+        if self.border.is_some() {
             draw_list
-                .add_rect(starting_position, ending_position, self.border.color)
-                .thickness(self.border.size)
+                .add_rect(
+                    starting_position,
+                    ending_position,
+                    self.border.unwrap().color,
+                )
+                .thickness(border)
                 .build();
         }
 
@@ -421,7 +369,7 @@ impl Flex {
 
                 let child_height = child.get_computed_height().unwrap();
 
-                let vertical_empty_space = height - child_height - self.border.size;
+                let vertical_empty_space = height - child_height - border;
 
                 let inner_cursor = context.cursor_screen_pos();
 
@@ -430,7 +378,7 @@ impl Flex {
                     FlexCrossAxisAlign::End => starting_position[1] + vertical_empty_space,
                     FlexCrossAxisAlign::Center => {
                         starting_position[1] + (height / 2.0 - child_height / 2.0)
-                    } // FlexCrossAxisAlign::Stretch => starting_position[1],
+                    }
                 };
 
                 if i == 0 {
@@ -470,33 +418,17 @@ impl Flex {
             ending_position_outer_edge[0],
             starting_position_outer_edge[1],
         ]);
-
-        // match cascading_override.custom_rendering {
-        //     true => context.set_cursor_screen_pos([
-        //         ending_position_outer_edge[0],
-        //         starting_position_outer_edge[1],
-        //     ]),
-        //     false => context.set_cursor_screen_pos(ending_position_outer_edge),
-        // }
     }
 
-    fn build_column(
-        &self,
-        context: &imgui::Ui,
-        draw_list: &DrawListMut,
-        // cascading_override: Override,
-    ) {
+    fn build_column(&self, context: &imgui::Ui, draw_list: &DrawListMut) {
         assert!(self.computed_width.is_some(), "Computed width is unset.");
         assert!(self.computed_height.is_some(), "Computed height is unset.");
 
         let width = self.computed_width.unwrap();
         let height = self.computed_height.unwrap();
 
-        println!("parent width: {}, parent height: {}", width, height);
-
-        let halfborder = self.border.size / 2.0;
-
-        let size = [width, height];
+        let border = self.border.and_then(|b| Some(b.size)).unwrap_or(0.0);
+        let halfborder = border / 2.0;
 
         let cursor = context.cursor_screen_pos();
         let starting_position = [
@@ -504,8 +436,8 @@ impl Flex {
             (cursor[1] + halfborder).floor(),
         ];
         let ending_position = [
-            (starting_position[0] + size[0] - halfborder).floor(),
-            (starting_position[1] + size[1] - halfborder).floor(),
+            (starting_position[0] + width - halfborder).floor(),
+            (starting_position[1] + height - halfborder).floor(),
         ];
 
         if let Some(fill) = self.fill {
@@ -515,10 +447,14 @@ impl Flex {
                 .build();
         }
 
-        if self.border.size > 0.0 {
+        if self.border.is_some() {
             draw_list
-                .add_rect(starting_position, ending_position, self.border.color)
-                .thickness(self.border.size)
+                .add_rect(
+                    starting_position,
+                    ending_position,
+                    self.border.unwrap().color,
+                )
+                .thickness(border)
                 .build();
         }
 
@@ -527,7 +463,6 @@ impl Flex {
         if number_of_children > 0 {
             let axis_empty_space = self.computed_axis_available_space.unwrap_or(0.0);
 
-            let number_of_children = self.children.len();
             let gap_division = (number_of_children - 1).max(1) as f32; // make sure that we don't divide by 0
 
             // Used for AxisAlign::Between
@@ -540,20 +475,13 @@ impl Flex {
                     i
                 );
 
-                println!(
-                    "child comp h {:?}, child comp w{:?}, parent axis empty {}, parent calc gap {}",
-                    child.get_computed_height(),
-                    child.get_computed_width(),
-                    axis_empty_space,
-                    calculated_gap
-                );
-
                 let child_width = child.get_computed_width().unwrap();
 
-                let horizontal_empty_space = width - child_width - self.border.size;
+                let horizontal_empty_space = width - child_width - border;
 
                 let inner_cursor = context.cursor_screen_pos();
 
+                // This is the alignment on the cross-axis, which in this case is the horizontal alignment
                 let cross_axis_adjusted_start = match self.cross_axis_align_items {
                     FlexCrossAxisAlign::Start => starting_position[0],
                     FlexCrossAxisAlign::End => starting_position[0] + horizontal_empty_space,
@@ -595,13 +523,6 @@ impl Flex {
                                 + self.gap
                                 + self.children[i - 1].get_computed_height().unwrap(),
                         ]),
-                        // FlexAxisAlign::Stretch => context.set_cursor_screen_pos([
-                        //     cross_axis_adjusted_start,
-                        //     inner_cursor[1]
-                        //         + (max_height - (self.gap * gap_division) - self.border.size * 2.0)
-                        //             / number_of_children as f32
-                        //         + self.gap,
-                        // ]),
                         _ => context.set_cursor_screen_pos([
                             cross_axis_adjusted_start,
                             inner_cursor[1]
@@ -617,195 +538,60 @@ impl Flex {
 
         context.set_cursor_screen_pos([starting_position[0], ending_position[1]]);
     }
+}
 
-    // fn build_experimental(
-    //     &self,
-    //     context: &imgui::Ui,
-    //     draw_list: &DrawListMut,
-    //     cascading_override: Override,
-    // ) {
-    //     let max_width = match cascading_override.custom_rendering {
-    //         true => cascading_override.width.unwrap_or(self.width),
-    //         false => self
-    //             .fill_parent
-    //             .then(|| context.content_region_avail()[0])
-    //             .unwrap_or(self.width),
-    //     };
+pub trait FlexChild {
+    fn flex(&mut self) -> &mut Flex;
+}
 
-    //     let max_height = match cascading_override.custom_rendering {
-    //         true => cascading_override.height.unwrap_or(self.height),
-    //         false => self
-    //             .fill_parent
-    //             .then(|| context.content_region_avail()[1])
-    //             .unwrap_or(self.height),
-    //     };
+impl<'a> FlexChild for FlexBuilder<'a> {
+    fn flex(&mut self) -> &mut Flex {
+        self.parent.children.push(UiElement::Flex(Flex::new()));
 
-    //     let halfborder = self.border.size / 2.0;
+        match self.parent.children.last_mut().unwrap() {
+            UiElement::Flex(flex) => flex,
+            _ => unreachable!("Flex is not flexing :("),
+        }
+    }
+}
 
-    //     let items_height = self.children.iter().map(|i| i.get_height()).sum::<f32>();
+impl<'a> TextChild for FlexBuilder<'a> {
+    fn text(&mut self, text: &str) -> &mut Text {
+        self.parent.children.push(UiElement::Text(Text::new(text)));
 
-    //     let vertical_empty_space = max_height - items_height - self.border.size * 2.0;
-
-    //     let size = [max_width, max_height];
-
-    //     let cursor = context.cursor_screen_pos();
-    //     let starting_position = [
-    //         (cursor[0] + halfborder).floor(),
-    //         (cursor[1] + halfborder).floor(),
-    //     ];
-    //     let ending_position = [
-    //         (starting_position[0] + size[0] - halfborder).floor(),
-    //         (starting_position[1] + size[1] - halfborder).floor(),
-    //     ];
-
-    //     if let Some(fill) = self.fill {
-    //         draw_list
-    //             .add_rect(starting_position, ending_position, fill)
-    //             .filled(true)
-    //             .build();
-    //     }
-
-    //     if self.border.size > 0.0 {
-    //         draw_list
-    //             .add_rect(starting_position, ending_position, self.border.color)
-    //             .thickness(self.border.size)
-    //             .build();
-    //     }
-
-    //     let number_of_children = self.children.len();
-
-    //     if number_of_children > 0 {
-    //         let gap_division = (number_of_children - 1).max(1) as f32; // make sure that we don't divide by 0
-
-    //         let calculated_gap = ((vertical_empty_space - halfborder) / gap_division).round();
-
-    //         for (i, child) in self.children.iter().enumerate() {
-    //             let horizontal_empty_space = max_width - child.get_width() - self.border.size;
-
-    //             let inner_cursor = context.cursor_screen_pos();
-
-    //             let cross_axis_adjusted_start = match self.cross_axis_align_items {
-    //                 FlexCrossAxisAlign::Start => starting_position[0],
-    //                 FlexCrossAxisAlign::End => starting_position[0] + horizontal_empty_space,
-    //                 FlexCrossAxisAlign::Center => {
-    //                     starting_position[0] + (max_width / 2.0 - child.get_width() / 2.0)
-    //                 }
-    //                 FlexCrossAxisAlign::Stretch => starting_position[0],
-    //             };
-
-    //             if i == 0 {
-    //                 match self.axis_align_items {
-    //                     FlexAxisAlign::End => {
-    //                         context.set_cursor_screen_pos([
-    //                             cross_axis_adjusted_start,
-    //                             inner_cursor[1] + vertical_empty_space - self.gap * gap_division,
-    //                         ]);
-    //                     }
-    //                     _ => context
-    //                         .set_cursor_screen_pos([cross_axis_adjusted_start, inner_cursor[1]]),
-    //                 }
-    //             } else {
-    //                 match self.axis_align_items {
-    //                     FlexAxisAlign::Between => {
-    //                         context.set_cursor_screen_pos([
-    //                             cross_axis_adjusted_start,
-    //                             inner_cursor[1]
-    //                                 + calculated_gap
-    //                                 + self.children[i - 1].get_height(),
-    //                         ]);
-    //                     }
-    //                     FlexAxisAlign::End => context.set_cursor_screen_pos([
-    //                         cross_axis_adjusted_start,
-    //                         inner_cursor[1] + self.gap + self.children[i - 1].get_height(),
-    //                     ]),
-    //                     FlexAxisAlign::Stretch => context.set_cursor_screen_pos([
-    //                         cross_axis_adjusted_start,
-    //                         match cascading_override.height {
-    //                             Some(h) => inner_cursor[1] + h - self.gap,
-    //                             None => {
-    //                                 inner_cursor[1]
-    //                                     + (max_height
-    //                                         - (self.gap * gap_division)
-    //                                         - self.border.size * 2.0)
-    //                                         / number_of_children as f32
-    //                                     + self.gap
-    //                             }
-    //                         },
-    //                     ]),
-    //                     _ => context.set_cursor_screen_pos([
-    //                         cross_axis_adjusted_start,
-    //                         inner_cursor[1] + self.gap + self.children[i - 1].get_height(),
-    //                     ]),
-    //                 }
-    //             }
-
-    //             let mut width_override: Option<f32> = match self.cross_axis_align_items {
-    //                 FlexCrossAxisAlign::Stretch => Some(max_width - self.border.size),
-    //                 _ => None,
-    //             };
-
-    //             if let Some(size) = self.cross_axis_size_override.get(&i) {
-    //                 width_override = Some(match size {
-    //                     FlexChildSizeOverride::Percentage(p) => *p * (max_width / 100.0),
-    //                     FlexChildSizeOverride::Pixels(p) => *p,
-    //                 });
-    //             }
-
-    //             let mut height_override: Option<f32> = match self.axis_align_items {
-    //                 FlexAxisAlign::Stretch => Some(
-    //                     (max_height - (self.gap * gap_division) - self.border.size * 2.0)
-    //                         / number_of_children as f32,
-    //                 ),
-    //                 _ => None,
-    //             };
-
-    //             if let Some(size) = self.axis_size_override.get(&i) {
-    //                 height_override = Some(match size {
-    //                     FlexChildSizeOverride::Percentage(p) => *p * (max_height / 100.0),
-    //                     FlexChildSizeOverride::Pixels(p) => *p,
-    //                 });
-    //             }
-
-    //             if height_override.is_some() {
-    //                 println!("height_override: {:?}, i: {}", height_override, i);
-    //             }
-
-    //             child.build(
-    //                 context,
-    //                 &draw_list,
-    //                 Override {
-    //                     width: width_override,
-    //                     height: height_override,
-    //                     custom_rendering: true,
-    //                 },
-    //             );
-    //         }
-    //     }
-
-    //     match cascading_override.custom_rendering {
-    //         true => context.set_cursor_screen_pos([starting_position[0], ending_position[1]]),
-    //         false => context.set_cursor_screen_pos([ending_position[0], ending_position[1]]),
-    //     }
-    // }
+        match self.parent.children.last_mut().unwrap() {
+            UiElement::Text(text) => text,
+            _ => unreachable!("Flex is not flexing :("),
+        }
+    }
 }
 
 impl<'a> ButtonChild for FlexBuilder<'a> {
-    fn button(&mut self, button: Button) -> &mut Button {
-        self.parent.children.push(UiElement::Button(button));
+    fn button(&mut self) -> &mut Button {
+        self.parent.children.push(UiElement::Button(Button::new()));
 
         match self.parent.children.last_mut().unwrap() {
             UiElement::Button(button) => button,
-            _ => unreachable!("Button is not a child of Flex :("),
+            _ => unreachable!("Button is not buttoning :("),
         }
     }
 }
 
 impl<'a> DropdownChild for FlexBuilder<'a> {
-    fn dropdown<T: 'static + PartialEq + Clone>(
-        &mut self,
-        dropdown: Dropdown<T>,
-    ) -> &mut Dropdown<T> {
-        let dropdown_box = DropdownBox::new(dropdown);
+    // fn dropdown<T: 'static + PartialEq + Clone>(
+    //     &mut self,
+    //     dropdown: Dropdown<T>,
+    // ) -> &mut Dropdown<T> {
+    //     let dropdown_box = DropdownBox::new(dropdown);
+    //     self.parent.children.push(UiElement::Dropdown(dropdown_box));
+
+    //     match self.parent.children.last_mut().unwrap() {
+    //         UiElement::Dropdown(dropdown_box) => dropdown_box.downcast_mut::<T>().unwrap(),
+    //         _ => unreachable!("Dropdown not dropdowning :("),
+    //     }
+    // }
+    fn dropdown<T: 'static + PartialEq + Clone>(&mut self) -> &mut Dropdown<T> {
+        let dropdown_box = DropdownBox::new(Dropdown::<T>::new());
         self.parent.children.push(UiElement::Dropdown(dropdown_box));
 
         match self.parent.children.last_mut().unwrap() {

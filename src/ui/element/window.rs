@@ -7,38 +7,13 @@ use crate::ui::{
 };
 
 use super::{
-    flex::Flex, Border, Computed, ParentProperties, Size, SizeOverride, UiElement, UiNode,
+    flex::{Flex, FlexChild},
+    Border, Computed, ParentProperties, Size, UiElement, UiNode,
 };
 
 pub struct WindowBuilder<'a> {
     window: &'a mut UiWindow,
 }
-
-impl<'a> WindowBuilder<'a> {
-    // pub fn flex_default(&mut self) -> &mut Flex {
-    //     self.window.children.push(UiElement::Flex(Flex::default()));
-
-    //     match self.window.children.last_mut().unwrap() {
-    //         UiElement::Flex(flex) => flex,
-    //         _ => unreachable!("Flex is not flexing :("),
-    //     }
-    // }
-
-    // todo make this macro
-    pub fn flex(&mut self) -> &mut Flex {
-        self.window.children.push(UiElement::Flex(Flex::new()));
-
-        match self.window.children.last_mut().unwrap() {
-            UiElement::Flex(flex) => flex,
-            _ => unreachable!("Flex is not flexing :("),
-        }
-    }
-}
-
-// pub enum WindowPositionType {
-//     Fixed,
-//     Movable,
-// }
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum WindowPlacementAlignTo {
@@ -340,5 +315,16 @@ impl UiWindow {
 
             window_token.unwrap().end();
         });
+    }
+}
+
+impl<'a> FlexChild for WindowBuilder<'a> {
+    fn flex(&mut self) -> &mut Flex {
+        self.window.children.push(UiElement::Flex(Flex::new()));
+
+        match self.window.children.last_mut().unwrap() {
+            UiElement::Flex(flex) => flex,
+            _ => unreachable!("Flex is not flexing :("),
+        }
     }
 }

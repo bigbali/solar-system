@@ -23,7 +23,7 @@ pub struct InputI32 {
     pub id: usize,
     pub width: Size,
     pub height: Size,
-    pub border: Border,
+    pub border: Option<Border>,
     pub background: UiColor,
     pub label: String,
     pub on_change: Option<Box<dyn Fn(i32)>>,
@@ -77,10 +77,7 @@ impl Default for InputI32 {
             id: InputI32::id_that_will_not_work_in_immediate_mode_oopsies(),
             width: Size::Pixels(120.0),
             height: Size::Pixels(48.0),
-            border: Border {
-                size: 0.0,
-                color: UiColor::from(LinearRgba::BLACK),
-            },
+            border: None,
             background: UiColor::from(LinearRgba::BLACK),
             label: "Button".to_string(),
             on_change: None,
@@ -100,7 +97,7 @@ impl UiNode for InputI32 {
         &self.height
     }
 
-    fn get_border(&self) -> Border {
+    fn get_border(&self) -> Option<Border> {
         self.border
     }
 

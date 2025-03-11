@@ -1,6 +1,7 @@
 use std::{fmt, sync::Arc};
 
 use bevy::color::LinearRgba;
+use imgui::{ColorStackToken, StyleStackToken};
 
 use crate::ui::{apply_button_color, clear_button_color, UiColor};
 
@@ -10,7 +11,7 @@ use super::{Border, Computed, ParentProperties, Size, UiElement, UiElementType, 
 pub struct Button {
     pub width: Size,
     pub height: Size,
-    pub border: Border,
+    pub border: Option<Border>,
     pub background: UiColor,
     pub label: String,
     pub on_click: OnClickCallback,
@@ -18,15 +19,18 @@ pub struct Button {
     pub computed_height: Option<f32>,
 }
 
+impl Button {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
 impl Default for Button {
     fn default() -> Self {
         Self {
             width: Size::Pixels(120.0),
             height: Size::Pixels(120.0),
-            border: Border {
-                size: 0.0,
-                color: UiColor::from(LinearRgba::BLACK),
-            },
+            border: None,
             background: UiColor::from(LinearRgba::BLACK),
             label: "Button".to_string(),
             on_click: OnClickCallback(None),
@@ -68,7 +72,7 @@ impl UiNode for Button {
         &self.height
     }
 
-    fn get_border(&self) -> Border {
+    fn get_border(&self) -> Option<Border> {
         self.border
     }
 
@@ -94,12 +98,20 @@ impl UiNode for Button {
 
         let cursor = context.cursor_screen_pos();
 
-        let color_stack = apply_button_color(context, self.background.into());
+        let button_color_stack = apply_button_color(context, self.background.into());
 
-        let border_size_token =
-            context.push_style_var(imgui::StyleVar::FrameBorderSize(self.border.size));
-        let border_color_token =
-            context.push_style_color(imgui::StyleColor::Border, self.border.color);
+        let mut style_stack: Vec<StyleStackToken> = Vec::new();
+        let mut color_stack: Vec<ColorStackToken> = Vec::new();
+
+        if self.border.is_some() {
+            style_stack.push(
+                context.push_style_var(imgui::StyleVar::FrameBorderSize(self.border.unwrap().size)),
+            );
+
+            color_stack.push(
+                context.push_style_color(imgui::StyleColor::Border, self.border.unwrap().color),
+            );
+        }
 
         if context.button_with_size(self.label.clone(), [width, height]) {
             if let Some(callback) = &self.on_click.0 {
@@ -107,17 +119,24 @@ impl UiNode for Button {
             }
         }
 
-        clear_button_color(color_stack);
+        clear_button_color(button_color_stack);
 
-        border_size_token.pop();
-        border_color_token.pop();
+        if self.border.is_some() {
+            for t in style_stack {
+                t.pop();
+            }
+
+            for t in color_stack {
+                t.pop();
+            }
+        }
 
         context.set_cursor_screen_pos([cursor[0] + width, cursor[1] + height]);
     }
 }
 
 pub trait ButtonChild {
-    fn button(&mut self, button: Button) -> &mut Button;
+    fn button(&mut self) -> &mut Button;
 }
 
 #[derive(Clone)]

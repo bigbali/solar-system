@@ -1,9 +1,9 @@
-use std::rc::Weak;
-
 use button::Button;
 use delegate::delegate;
-use dropdown::{Dropdown, DropdownBox, ErasedDropdown};
+use dropdown::DropdownBox;
 use flex::Flex;
+use rect::Rect;
+use text::Text;
 
 use super::UiColor;
 
@@ -11,7 +11,9 @@ pub mod button;
 pub mod dropdown;
 pub mod flex;
 pub mod input;
+pub mod rect;
 pub mod root;
+pub mod text;
 pub mod window;
 
 pub trait UiNode {
@@ -23,15 +25,10 @@ pub trait UiNode {
     /// Do note that this may be different from the final computed height of the element.
     fn get_height(&self) -> &Size;
 
-    fn get_border(&self) -> Border;
+    fn get_border(&self) -> Option<Border>;
     fn get_children(&self) -> Option<&Vec<UiElement>>;
     fn get_type(&self) -> UiElementType;
-    fn build(
-        &self,
-        context: &imgui::Ui,
-        draw_list: &imgui::DrawListMut,
-        // cascading_override: Override,
-    );
+    fn build(&self, context: &imgui::Ui, draw_list: &imgui::DrawListMut);
 }
 
 pub trait Computed {
@@ -62,28 +59,12 @@ pub struct ParentProperties<'a> {
     padding: f32,
 }
 
-pub struct SizeOverride {
-    width: Option<f32>,
-    height: Option<f32>,
-}
-
-// #[derive(Debug, Default, Clone)]
-// pub struct Override
-// </* 'a */>
-// {
-//     width: Option<f32>,
-//     height: Option<f32>,
-//     parent_element: Option<Weak<UiElement>>,
-//     custom_rendering: bool,
-// }
-
 #[derive(Debug, Clone)]
 pub enum Size {
     Pixels(f32),
     Percentage(f32),
-    // FitContent, // Don't really need this in this here project. It's also bloody hard to implement.
-    /// Allow dynamically resizing, for example in a flex container when it's
-    /// alignment is set to stretch.
+    // FitContent, // Don't really need this in this here project.
+    /// Allow dynamically resizing to fill available space.
     Auto,
 }
 
@@ -95,30 +76,36 @@ pub struct Border {
 
 pub enum UiElementType {
     Flex,
+    Text,
     Button,
     Dropdown,
     InputI32,
     InputF32,
     InputString,
+    Rect,
 }
 
 #[derive(Debug, Clone)]
 pub enum UiElement {
     Flex(Flex),
+    Text(Text),
     Button(Button),
     Dropdown(DropdownBox),
+    Rect(Rect),
 }
 
 impl UiNode for UiElement {
     delegate! {
         to match self {
             UiElement::Flex(f) => f,
+            UiElement::Text(t) => t,
             UiElement::Button(b) => b,
             UiElement::Dropdown(d) => d,
+            UiElement::Rect(r) => r,
         } {
             fn get_width(&self) -> &Size;
             fn get_height(&self) -> &Size;
-            fn get_border(&self) -> Border;
+            fn get_border(&self) -> Option<Border>;
             fn get_children(&self) -> Option<&Vec<UiElement>>;
             fn get_type(&self) -> UiElementType;
             fn build(&self, context: &imgui::Ui, draw_list: &imgui::DrawListMut, /* cascading_override: Override */);
@@ -130,8 +117,10 @@ impl Computed for UiElement {
     delegate! {
         to match self {
             UiElement::Flex(f) => f,
+            UiElement::Text(t) => t,
             UiElement::Button(b) => b,
             UiElement::Dropdown(d) => d,
+            UiElement::Rect(r) => r,
         } {
             fn get_computed_width(&self) -> Option<f32>;
             fn set_computed_width(&mut self, new_width: f32);
