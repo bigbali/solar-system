@@ -58,7 +58,7 @@ impl Computed for Button {
     }
 
     // Button can't have children,
-    fn compute_children_size(&mut self, parent_properties: &ParentProperties) {
+    fn compute_children_size(&mut self, _parent_properties: &ParentProperties) {
         return;
     }
 }

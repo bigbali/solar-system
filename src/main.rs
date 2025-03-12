@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use bevy_ui_anchor::AnchorUiPlugin;
 use material::saturn_rings::SaturnRingMaterial;
 use simulation::SimulationPlugin;
 use spawn::SpawnBodyPlugin;
