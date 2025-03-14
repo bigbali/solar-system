@@ -110,12 +110,8 @@ impl<T: PartialEq + Clone> Dropdown<T> {
 
 impl<T: PartialEq> Drop for Dropdown<T> {
     fn drop(&mut self) {
-        DROPDOWN_SELECTED_MAP.with_borrow_mut(|map| {
-            map.remove(&self.id);
-        });
-
         DROPDOWN_ID_INCR.with(|incr| {
-            incr.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| {
+            let _ = incr.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| {
                 if v == 0 {
                     None
                 } else {
@@ -178,6 +174,10 @@ impl<T: PartialEq + Clone> UiNode for Dropdown<T> {
     }
 
     fn get_children(&self) -> Option<&Vec<UiElement>> {
+        None
+    }
+
+    fn get_children_mut(&mut self) -> Option<&mut Vec<UiElement>> {
         None
     }
 
@@ -246,6 +246,10 @@ impl UiNode for DropdownBox {
 
     fn get_children(&self) -> Option<&Vec<UiElement>> {
         self.inner.get_children()
+    }
+
+    fn get_children_mut(&mut self) -> Option<&mut Vec<UiElement>> {
+        Rc::get_mut(&mut self.inner).unwrap().get_children_mut()
     }
 
     fn get_type(&self) -> UiElementType {

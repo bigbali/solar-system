@@ -21,7 +21,14 @@ impl Plugin for SimulationPlugin {
                 Startup,
                 (setup::initialize_bodies_system, setup::spawn_player_system),
             )
-            .add_systems(Update, (body::follow_body_system, gizmo::body_gizmo_system))
+            .add_systems(
+                Update,
+                (
+                    body::follow_body_system,
+                    gizmo::body_gizmo_system,
+                    setup::update_body_name_system,
+                ),
+            )
             .add_systems(
                 FixedUpdate,
                 (

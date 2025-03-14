@@ -15,6 +15,7 @@ use crate::ui::{
         button::{Button, ButtonChild},
         dropdown::{Dropdown, DropdownChild, DropdownValue},
         flex::{self, Flex, FlexAxisAlign, FlexChild, FlexCrossAxisAlign, FlexDirection},
+        input::InputI32Child,
         root::RootNode,
         text::TextChild,
         window::{
@@ -87,6 +88,11 @@ pub fn spawn_window_system(mut context: NonSendMut<ImguiContext>, windows: Query
                                 .background(Color::BLACK.into())
                                 .align_x(FlexCrossAxisAlign::Center)
                                 .align_y(FlexCrossAxisAlign::Center);
+
+                            ff.input_i32()
+                                .label("hello".to_string())
+                                .step(1)
+                                .default_value(0);
                         });
                     f.flex()
                         .flex_direction(flex::FlexDirection::Row)

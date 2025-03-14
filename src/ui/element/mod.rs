@@ -2,6 +2,7 @@ use button::Button;
 use delegate::delegate;
 use dropdown::DropdownBox;
 use flex::Flex;
+use input::InputI32;
 use rect::Rect;
 use text::Text;
 
@@ -16,6 +17,10 @@ pub mod root;
 pub mod text;
 pub mod window;
 
+pub trait BasicUiNode {
+    fn get_self(&self) -> &impl UiNode;
+}
+
 pub trait UiNode {
     /// Returns the width of the element.
     /// Do note that this may be different from the final computed width of the element.
@@ -26,7 +31,11 @@ pub trait UiNode {
     fn get_height(&self) -> &Size;
 
     fn get_border(&self) -> Option<Border>;
+
+    /// Returns the children of the element, if the element has children.
+    /// Do note that even if Some(...) is returned, the children vector may still be empty.
     fn get_children(&self) -> Option<&Vec<UiElement>>;
+    fn get_children_mut(&mut self) -> Option<&mut Vec<UiElement>>;
     fn get_type(&self) -> UiElementType;
     fn build(&self, context: &imgui::Ui, draw_list: &imgui::DrawListMut);
 }
@@ -48,7 +57,16 @@ pub trait Computed {
     /// Must be invoked by the root node.\
     /// It mutates the element's children.
     /// Do consider that the element's own sizes are calculated by its parent.
+    /// TODO: actually, why is it not its own trait if it needs to be invoked by the root node?
     fn compute_children_size(&mut self, parent_properties: &ParentProperties);
+}
+
+pub trait HasChildren {
+    fn children(&mut self) -> &mut Vec<UiElement>;
+}
+
+pub trait Builder {
+    fn parent(&mut self) -> &mut impl UiNode;
 }
 
 pub struct ParentProperties<'a> {
@@ -91,6 +109,9 @@ pub enum UiElement {
     Text(Text),
     Button(Button),
     Dropdown(DropdownBox),
+    InputI32(InputI32),
+    // InputF32(InputF32),
+    // InputString(InputString),
     Rect(Rect),
 }
 
@@ -101,12 +122,14 @@ impl UiNode for UiElement {
             UiElement::Text(t) => t,
             UiElement::Button(b) => b,
             UiElement::Dropdown(d) => d,
+            UiElement::InputI32(i) => i,
             UiElement::Rect(r) => r,
         } {
             fn get_width(&self) -> &Size;
             fn get_height(&self) -> &Size;
             fn get_border(&self) -> Option<Border>;
             fn get_children(&self) -> Option<&Vec<UiElement>>;
+            fn get_children_mut(&mut self) -> Option<&mut Vec<UiElement>>;
             fn get_type(&self) -> UiElementType;
             fn build(&self, context: &imgui::Ui, draw_list: &imgui::DrawListMut, /* cascading_override: Override */);
         }
@@ -120,6 +143,7 @@ impl Computed for UiElement {
             UiElement::Text(t) => t,
             UiElement::Button(b) => b,
             UiElement::Dropdown(d) => d,
+            UiElement::InputI32(i) => i,
             UiElement::Rect(r) => r,
         } {
             fn get_computed_width(&self) -> Option<f32>;

@@ -1,4 +1,4 @@
-use bevy::{color, prelude::*};
+use bevy::{color, prelude::*, render::camera};
 use bevy_ui_anchor::{AnchorTarget, AnchorUiNode, HorizontalAnchor, VerticalAnchor};
 
 use crate::{
@@ -181,6 +181,7 @@ pub fn spawn_player_system(mut commands: Commands, parameters: Res<SimulationPar
         });
 }
 
+const NAME_OFFSET_AU: f32 = 0.005;
 fn create_body_name(
     commands: &mut Commands,
     name: Option<String>,
@@ -189,9 +190,6 @@ fn create_body_name(
     id: Entity,
 ) {
     // TODO system: get ca,era distance from body, and use that distance to increase vertical offset
-    const NAME_OFFSET_AU: f32 = 0.005;
-    const BEVY_DEFAULT_FONT_SIZE: f32 = 20.0;
-
     commands
         .spawn((
             Node {
@@ -214,6 +212,47 @@ fn create_body_name(
                 TextColor::from(Color::WHITE),
             ));
         });
+}
+
+// TODO something is fishy
+pub fn update_body_name_system(
+    body_query: Query<(&Body, &Transform)>,
+    mut anchor_query: Query<&mut AnchorUiNode>,
+    camera_query: Query<(&Camera, &GlobalTransform)>,
+    window_query: Query<&Window>,
+) {
+    let (camera, camera_transform) = camera_query.single();
+    let window = window_query.single();
+
+    // I measured the height of the node to be 32.0, but it would be cool to un-retard the implementation
+    // to actually query the height of the node
+    const MEASURED_HEIGHT_OF_NODE: f32 = 32.0;
+
+    for mut anchor in anchor_query.iter_mut() {
+        if let AnchorTarget::Entity(entity) = anchor.target {
+            let result = body_query.get(entity);
+
+            if let Ok((body, transform)) = result {
+                let on_screen_ndc = camera.world_to_ndc(camera_transform, transform.translation);
+
+                if let Some(ndc) = on_screen_ndc {
+                    let with_offset_ndc =
+                        ndc.with_y(ndc.y + MEASURED_HEIGHT_OF_NODE / window.height());
+
+                    let in_world = camera.ndc_to_world(camera_transform, with_offset_ndc);
+
+                    if let Some(in_world) = in_world {
+                        anchor.offset = Some(
+                            anchor
+                                .offset
+                                .unwrap()
+                                .with_y(in_world.y + NAME_OFFSET_AU + (body.data.radius / 2.0)),
+                        );
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn insert_type_marker(entity: &mut EntityCommands, body: &Body) {

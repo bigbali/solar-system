@@ -1,15 +1,19 @@
 use std::{
     any::Any,
-    cell::RefCell,
+    cell::{RefCell, RefMut},
     collections::HashMap,
-    sync::atomic::{AtomicUsize, Ordering},
+    fmt,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
 };
 
-use bevy::color::LinearRgba;
+use bevy::{color::LinearRgba, scene::ron::value};
 
 use crate::ui::UiColor;
 
-use super::{Border, Size, UiElementType, UiNode};
+use super::{Border, Builder, Computed, HasChildren, Size, UiElement, UiElementType, UiNode};
 
 thread_local! {
     static DROPDOWN_SELECTED_MAP: RefCell<HashMap<usize, i32>> = RefCell::new(HashMap::new());
@@ -19,19 +23,29 @@ thread_local! {
     static DROPDOWN_ID_INCR: AtomicUsize = AtomicUsize::new(0);
 }
 
+#[derive(Debug, Clone)]
+// TODO Input<T> where T: InputType::I32
 pub struct InputI32 {
-    pub id: usize,
-    pub width: Size,
-    pub height: Size,
-    pub border: Option<Border>,
-    pub background: UiColor,
-    pub label: String,
-    pub on_change: Option<Box<dyn Fn(i32)>>,
-    pub step: i32,
-    pub default_value: i32,
+    id: usize,
+    width: Size,
+    height: Size,
+    border: Option<Border>,
+    background: UiColor,
+    label: String,
+    on_change: OnChangeCallback<i32>,
+    step: i32,
+    default_value: i32,
+    computed_width: Option<f32>,
+    computed_height: Option<f32>,
 }
 
 impl InputI32 {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    // Even though we reset the id's when dropped, we will still face issues if the order of rendering the elements changes.
+    // Thus: TODO: generate constant id via macros, maybe using the place where the element is created (line, col).
     pub fn id_that_will_not_work_in_immediate_mode_oopsies() -> usize {
         DROPDOWN_ID_INCR.with(|incr| incr.fetch_add(1, Ordering::SeqCst))
     }
@@ -48,19 +62,26 @@ impl InputI32 {
         DROPDOWN_SELECTED_MAP.with_borrow(|map| *map.get(&self.id).unwrap_or(&self.default_value))
     }
 
-    // pub fn get_value_ref(&self) -> &i32 {
-    //     DROPDOWN_SELECTED_MAP.with_borrow(|map| map.get(&self.id).unwrap_or(&self.default_value))
-    // }
+    pub fn step(&mut self, v: i32) -> &mut Self {
+        self.step = v;
+        self
+    }
+
+    pub fn default_value(&mut self, v: i32) -> &mut Self {
+        self.default_value = v;
+        self
+    }
+
+    pub fn label(&mut self, v: String) -> &mut Self {
+        self.label = v;
+        self
+    }
 }
 
 impl Drop for InputI32 {
     fn drop(&mut self) {
-        DROPDOWN_SELECTED_MAP.with_borrow_mut(|map| {
-            map.remove(&self.id);
-        });
-
         DROPDOWN_ID_INCR.with(|incr| {
-            incr.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| {
+            let _ = incr.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| {
                 if v == 0 {
                     None
                 } else {
@@ -80,12 +101,33 @@ impl Default for InputI32 {
             border: None,
             background: UiColor::from(LinearRgba::BLACK),
             label: "Button".to_string(),
-            on_change: None,
+            on_change: OnChangeCallback(None),
             step: 1,
-            default_value: 0, // values: Vec::new(),
-                              // selected_index: Cell::new(0),
+            default_value: 0,
+            computed_width: None,
+            computed_height: None,
         }
     }
+}
+
+impl Computed for InputI32 {
+    fn get_computed_width(&self) -> Option<f32> {
+        self.computed_width
+    }
+
+    fn set_computed_width(&mut self, new_width: f32) {
+        self.computed_width = Some(new_width);
+    }
+
+    fn get_computed_height(&self) -> Option<f32> {
+        self.computed_height
+    }
+
+    fn set_computed_height(&mut self, new_height: f32) {
+        self.computed_height = Some(new_height);
+    }
+
+    fn compute_children_size(&mut self, _parent_properties: &super::ParentProperties) {}
 }
 
 impl UiNode for InputI32 {
@@ -101,7 +143,11 @@ impl UiNode for InputI32 {
         self.border
     }
 
-    fn get_children(&self) -> Option<&Vec<super::UiElement>> {
+    fn get_children(&self) -> Option<&Vec<UiElement>> {
+        None
+    }
+
+    fn get_children_mut(&mut self) -> Option<&mut Vec<UiElement>> {
         None
     }
 
@@ -109,122 +155,54 @@ impl UiNode for InputI32 {
         UiElementType::InputI32
     }
 
-    fn build(
-        &self,
-        context: &imgui::Ui,
-        draw_list: &imgui::DrawListMut,
-        // cascading_override: Override,
-    ) {
-        // if self.values.is_empty() {
-        //     return;
-        // }
+    fn build(&self, context: &imgui::Ui, _draw_list: &imgui::DrawListMut) {
+        let mut value = self.get_value();
 
-        // context.input_scalar(label, value)
+        // Since we cannot get a direct mutable reference with a long enough lifetime,
+        // let's just get the value, update it, and then set it back.
+        if context
+            .input_int(&self.label, &mut value)
+            .step(self.step)
+            .build()
+        {
+            if let Some(callback) = &self.on_change.0 {
+                callback(value);
+            }
 
-        // if let Some(cb) = context.begin_combo(self.label.clone(), self.get_label()) {
-        //     let mut current: usize = self.get_current_index();
+            self.set_value(value);
+        }
 
-        //     for (i, value) in self.values.iter().enumerate() {
-        //         let v = &value.value;
-        //         let label = &value.label;
-
-        //         if current == i {
-        //             context.set_item_default_focus();
-        //         }
-
-        //         let clicked = context
-        //             .selectable_config(label)
-        //             .selected(current == i)
-        //             .build();
-
-        //         if clicked {
-        //             self.set_current_index(i);
-        //         }
-        //     }
-        // }
-        // println!(
-        //     "selected {:?}",
-        //     DROPDOWN_SELECTED_MAP.with_borrow(|m| m.clone())
-        // );
+        println!(
+            "map: {:#?}",
+            DROPDOWN_SELECTED_MAP.with_borrow(|v| v.clone())
+        );
     }
 }
 
-// impl UiNode for DropdownBox {
-//     fn get_width(&self) -> f32 {
-//         self.inner.get_width()
-//     }
+pub trait InputI32Child: Builder {
+    fn input_i32(&mut self) -> &mut InputI32 {
+        let maybe_children = self.parent().get_children_mut();
 
-//     fn get_height(&self) -> f32 {
-//         self.inner.get_height()
-//     }
+        assert!(
+            maybe_children.is_some(),
+            "Parent of builder has no children"
+        );
 
-//     fn get_border(&self) -> Border {
-//         self.inner.get_border()
-//     }
+        let children = maybe_children.unwrap();
+        children.push(UiElement::InputI32(InputI32::new()));
 
-//     fn build(
-//         &self,
-//         context: &imgui::Ui,
-//         draw_list: &imgui::DrawListMut,
-//         cascading_override: Override,
-//     ) {
-//         self.inner.build(context, draw_list, cascading_override);
-//     }
-// }
+        match children.last_mut().unwrap() {
+            UiElement::InputI32(input) => input,
+            _ => unreachable!("InputI32 not inputing :("),
+        }
+    }
+}
 
-// pub trait DropdownChild {
-//     // type Item: PartialEq;
-//     fn dropdown<T: PartialEq + 'static>(&mut self, dropdown: Dropdown<T>) -> &mut Dropdown<T>;
-// }
+#[derive(Clone)]
+pub struct OnChangeCallback<T>(pub Option<Arc<dyn Fn(T)>>);
 
-// pub trait ErasedDropdown: std::any::Any + UiNode {
-//     fn as_any(&self) -> &dyn std::any::Any;
-//     fn as_any_mut(&mut self) -> &mut dyn Any;
-// }
-
-// impl<T: 'static + PartialEq> ErasedDropdown for Dropdown<T> {
-//     fn as_any(&self) -> &dyn std::any::Any {
-//         self
-//     }
-
-//     fn as_any_mut(&mut self) -> &mut dyn Any {
-//         self
-//     }
-// }
-
-// // impl<T> TypeErasedUiNode for Dropdown<T> {}
-
-// // pub trait TypeErasedUiNode: UiNode + ErasedDropdown {}
-
-// // pub struct DropdownBox {
-// //     pub inner: Box<dyn ErasedDropdown>,
-// // }
-// pub struct DropdownBox {
-//     pub inner: Box<dyn ErasedDropdown>,
-// }
-
-// impl DropdownBox {
-//     pub fn new<T: PartialEq + 'static>(dropdown: Dropdown<T>) -> Self {
-//         Self {
-//             inner: Box::new(dropdown),
-//         }
-//     }
-
-//     pub fn downcast_mut<T: PartialEq + 'static>(&mut self) -> Option<&mut Dropdown<T>> {
-//         self.inner.as_any_mut().downcast_mut::<Dropdown<T>>()
-//     }
-// }
-
-// impl Deref for DropdownBox {
-//     type Target = dyn UiNode;
-
-//     fn deref(&self) -> &Self::Target {
-//         &*self.inner
-//     }
-// }
-
-// impl DerefMut for DropdownBox {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         &mut *self.inner
-//     }
-// }
+impl<T> fmt::Debug for OnChangeCallback<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("OnChange Closure")
+    }
+}

@@ -80,6 +80,10 @@ impl UiNode for Button {
         None
     }
 
+    fn get_children_mut(&mut self) -> Option<&mut Vec<UiElement>> {
+        None
+    }
+
     fn get_type(&self) -> UiElementType {
         UiElementType::Button
     }

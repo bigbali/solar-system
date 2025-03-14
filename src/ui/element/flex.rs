@@ -8,8 +8,9 @@ use crate::ui::UiColor;
 use super::{
     button::{Button, ButtonChild},
     dropdown::{Dropdown, DropdownBox, DropdownChild},
+    input::InputI32Child,
     text::{Text, TextChild},
-    Border, Computed, ParentProperties, Size, UiElement, UiElementType, UiNode,
+    Border, Builder, Computed, ParentProperties, Size, UiElement, UiElementType, UiNode,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -35,6 +36,13 @@ pub enum FlexCrossAxisAlign {
 
 pub struct FlexBuilder<'a> {
     parent: &'a mut Flex,
+}
+
+impl Builder for FlexBuilder<'_> {
+    #[allow(refining_impl_trait)]
+    fn parent(&mut self) -> &mut Flex {
+        self.parent
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -89,6 +97,10 @@ impl UiNode for Flex {
 
     fn get_children(&self) -> Option<&Vec<UiElement>> {
         Some(&self.children)
+    }
+
+    fn get_children_mut(&mut self) -> Option<&mut Vec<UiElement>> {
+        Some(&mut self.children)
     }
 
     fn get_type(&self) -> UiElementType {
@@ -578,18 +590,6 @@ impl<'a> ButtonChild for FlexBuilder<'a> {
 }
 
 impl<'a> DropdownChild for FlexBuilder<'a> {
-    // fn dropdown<T: 'static + PartialEq + Clone>(
-    //     &mut self,
-    //     dropdown: Dropdown<T>,
-    // ) -> &mut Dropdown<T> {
-    //     let dropdown_box = DropdownBox::new(dropdown);
-    //     self.parent.children.push(UiElement::Dropdown(dropdown_box));
-
-    //     match self.parent.children.last_mut().unwrap() {
-    //         UiElement::Dropdown(dropdown_box) => dropdown_box.downcast_mut::<T>().unwrap(),
-    //         _ => unreachable!("Dropdown not dropdowning :("),
-    //     }
-    // }
     fn dropdown<T: 'static + PartialEq + Clone>(&mut self) -> &mut Dropdown<T> {
         let dropdown_box = DropdownBox::new(Dropdown::<T>::new());
         self.parent.children.push(UiElement::Dropdown(dropdown_box));
@@ -600,3 +600,5 @@ impl<'a> DropdownChild for FlexBuilder<'a> {
         }
     }
 }
+
+impl<'a> InputI32Child for FlexBuilder<'a> {}
