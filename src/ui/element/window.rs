@@ -41,13 +41,13 @@ pub struct WindowPosition {
 }
 
 #[derive(Debug, Clone)]
-pub enum WindowDimension {
+pub enum WindowSize {
     Pixels(f32),
     Percentage(f32),
     // Stretch, // Actually, this is effectively the same as Percentage(100.0). Bye then, good old Stretch.
 }
 
-impl Default for WindowDimension {
+impl Default for WindowSize {
     fn default() -> Self {
         Self::Pixels(800.0)
     }
@@ -61,10 +61,8 @@ pub struct UiWindow {
     movable: bool,
     resizable: bool,
     background: UiColor,
-    // pub width: Size,
-    // pub height: Size,
-    width: WindowDimension,
-    height: WindowDimension,
+    width: WindowSize,
+    height: WindowSize,
     position: WindowPosition,
     padding: f32,
     children: Vec<UiElement>,
@@ -75,28 +73,28 @@ pub struct UiWindow {
 impl UiWindow {
     fn compute_initial_size(
         bevy_window: &bevy::window::Window,
-        width: WindowDimension,
-        height: WindowDimension,
+        width: WindowSize,
+        height: WindowSize,
     ) -> (f32, f32) {
         let bevy_window_width = bevy_window.width();
         let bevy_window_height = bevy_window.height();
 
         let width = match width {
-            WindowDimension::Pixels(width) => width,
-            WindowDimension::Percentage(percentage) => bevy_window_width * (percentage / 100.0),
+            WindowSize::Pixels(width) => width,
+            WindowSize::Percentage(percentage) => bevy_window_width * (percentage / 100.0),
             // WindowDimension::Stretch => bevy_window_width,
         };
 
         let height = match height {
-            WindowDimension::Pixels(height) => height,
-            WindowDimension::Percentage(percentage) => bevy_window_height * (percentage / 100.0),
+            WindowSize::Pixels(height) => height,
+            WindowSize::Percentage(percentage) => bevy_window_height * (percentage / 100.0),
             // WindowDimension::Stretch => bevy_window_height,
         };
 
         return (width, height);
     }
 
-    fn compute_children_size(&mut self) {
+    fn compute_children_size(&mut self, context: &imgui::Ui) {
         if self.children.len() == 0 {
             panic!("Window with title '{}' has no children.", self.title);
         }
@@ -107,33 +105,6 @@ impl UiWindow {
                     to implement layout logic for the window element. \
                     Use a single Flex child, and do your layout there.", self.title);
         }
-
-        // NOTE: let's not implement flexbox rendering for now, lol.
-        // let mut total_fixed_size = 0.0;
-        // let mut total_percentage = 0.0;
-        // let mut auto_count = 0_u8;
-
-        // for child in &mut self.children {
-        //     match child.get_width() {
-        //         Size::Pixels(p) => total_fixed_size += p,
-        //         Size::Percentage(p) => total_percentage += p,
-        //         Size::Auto => auto_count += 1,
-        //     }
-        // }
-
-        // let gap_count = self.children.len() - 1;
-
-        // // gap space should probably be considered as occupied
-        // let total_occupied_space =
-        //     total_fixed_size + (total_percentage * self.computed_width / 100.0);
-
-        // let available_space = self.computed_width - total_occupied_space;
-
-        // let auto_size = if auto_count > 0 {
-        //     available_space / auto_count as f32
-        // } else {
-        //     0.0
-        // };
 
         let self_properties = ParentProperties {
             computed_width: Some(self.computed_width),
@@ -159,17 +130,13 @@ impl UiWindow {
                 Size::Auto => self.computed_height - (self.padding * 2.0),
             });
 
-            child.compute_children_size(&self_properties);
+            child.compute_children_size(context, &self_properties);
         }
     }
 }
 
 impl UiWindow {
-    pub fn new(
-        bevy_window: &bevy::window::Window,
-        width: WindowDimension,
-        height: WindowDimension,
-    ) -> Self {
+    pub fn new(bevy_window: &bevy::window::Window, width: WindowSize, height: WindowSize) -> Self {
         let (w, h) = Self::compute_initial_size(&bevy_window, width, height);
 
         Self {
@@ -181,8 +148,8 @@ impl UiWindow {
             resizable: false,
             movable: false,
             background: UiColor::from(LinearRgba::new(0.1, 0.1, 0.1, 1.0)),
-            width: WindowDimension::Pixels(800.0),
-            height: WindowDimension::Pixels(600.0),
+            width: WindowSize::Pixels(800.0),
+            height: WindowSize::Pixels(600.0),
             position: WindowPosition {
                 x: WindowPlacement::Manual(0.0),
                 y: WindowPlacement::Manual(0.0),
@@ -208,12 +175,12 @@ impl UiWindow {
         self
     }
 
-    pub fn width(&mut self, v: WindowDimension) -> &mut Self {
+    pub fn width(&mut self, v: WindowSize) -> &mut Self {
         self.width = v;
         self
     }
 
-    pub fn height(&mut self, v: WindowDimension) -> &mut Self {
+    pub fn height(&mut self, v: WindowSize) -> &mut Self {
         self.height = v;
         self
     }
@@ -251,7 +218,7 @@ impl UiWindow {
 
     pub fn build(&mut self, context: &imgui::Ui, bevy_window: &bevy::window::Window) {
         with_color_scheme(context, || {
-            self.compute_children_size();
+            self.compute_children_size(context);
 
             let bevy_window_width = bevy_window.width();
             let bevy_window_height = bevy_window.height();
@@ -277,13 +244,13 @@ impl UiWindow {
             };
 
             let position_condition = match self.movable {
-                true => imgui::Condition::Always,
-                false => imgui::Condition::FirstUseEver,
+                true => imgui::Condition::FirstUseEver,
+                false => imgui::Condition::Always,
             };
 
             let size_condition = match self.resizable {
-                false => imgui::Condition::Always,
                 true => imgui::Condition::FirstUseEver,
+                false => imgui::Condition::Always,
             };
 
             let style_stack = vec![context
@@ -318,8 +285,8 @@ impl UiWindow {
     }
 }
 
-impl<'a> FlexChild for WindowBuilder<'a> {
-    fn flex(&mut self) -> &mut Flex {
+impl<'a> WindowBuilder<'a> {
+    pub fn flex(&mut self) -> &mut Flex {
         self.window.children.push(UiElement::Flex(Flex::new()));
 
         match self.window.children.last_mut().unwrap() {

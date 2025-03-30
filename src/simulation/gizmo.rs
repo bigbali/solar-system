@@ -2,12 +2,13 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 
-use super::body::Body;
+use super::{body::Body, trajectory::LiveTrajectoryPreview};
 
 pub fn body_gizmo_system(
     mut gizmos: Gizmos,
     query: Query<(&Body, &Transform)>,
     trajectory: ResMut<super::trajectory::Trajectories>,
+    t: Res<LiveTrajectoryPreview>,
 ) {
     gizmos.grid(
         Isometry3d::from_rotation(Quat::from_rotation_x(PI / 2.0)),
@@ -38,5 +39,9 @@ pub fn body_gizmo_system(
         let points: Vec<Vec3> = t.positions.iter().map(|p| p.end).collect();
 
         gizmos.linestrip(points, t.color);
+    }
+
+    for trajectory in t.values.iter() {
+        gizmos.linestrip(trajectory.points.clone(), LinearRgba::RED);
     }
 }

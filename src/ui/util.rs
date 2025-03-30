@@ -1,8 +1,6 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use bevy::{color::LinearRgba, winit::cursor};
 use imgui::*;
-use mint;
 
 use super::DefaultColor;
 
@@ -15,13 +13,13 @@ pub fn id() -> String {
 pub fn with_color_scheme(ui: &imgui::Ui, f: impl FnOnce()) {
     let mut color_stack = Vec::new();
 
-    color_stack.push(ui.push_style_color(StyleColor::WindowBg, DefaultColor::Background));
-    color_stack.push(ui.push_style_color(StyleColor::Button, DefaultColor::Button));
-    color_stack.push(ui.push_style_color(StyleColor::ButtonHovered, DefaultColor::ButtonHover));
-    color_stack.push(ui.push_style_color(StyleColor::ButtonActive, DefaultColor::ButtonActive));
-    color_stack.push(ui.push_style_color(StyleColor::Border, DefaultColor::Border));
-    color_stack.push(ui.push_style_color(StyleColor::Text, DefaultColor::Text));
-    color_stack.push(ui.push_style_color(StyleColor::FrameBg, DefaultColor::Input));
+    color_stack.push(ui.push_style_color(StyleColor::WindowBg, DefaultColor::BACKGROUND));
+    color_stack.push(ui.push_style_color(StyleColor::Button, DefaultColor::BUTTON));
+    color_stack.push(ui.push_style_color(StyleColor::ButtonHovered, DefaultColor::BUTTON_HOVER));
+    color_stack.push(ui.push_style_color(StyleColor::ButtonActive, DefaultColor::BUTTON_ACTIVE));
+    color_stack.push(ui.push_style_color(StyleColor::Border, DefaultColor::BORDER));
+    color_stack.push(ui.push_style_color(StyleColor::Text, DefaultColor::TEXT));
+    color_stack.push(ui.push_style_color(StyleColor::FrameBg, DefaultColor::INPUT));
 
     f();
 

@@ -14,7 +14,7 @@ use bevy::color::LinearRgba;
 
 use crate::ui::UiColor;
 
-use super::{Border, Computed, Size, UiElement, UiElementType, UiNode};
+use super::{Border, Builder, Computed, Size, UiElement, UiElementType, UiNode};
 
 thread_local! {
     static DROPDOWN_SELECTED_MAP: RefCell<HashMap<usize, usize>> = RefCell::new(HashMap::new());
@@ -106,6 +106,31 @@ impl<T: PartialEq + Clone> Dropdown<T> {
     pub fn get_current_index(&self) -> usize {
         DROPDOWN_SELECTED_MAP.with_borrow(|map| *map.get(&self.id).unwrap_or(&0))
     }
+
+    pub fn width(&mut self, v: Size) -> &mut Self {
+        self.width = v;
+        self
+    }
+
+    pub fn height(&mut self, v: Size) -> &mut Self {
+        self.height = v;
+        self
+    }
+
+    pub fn label(&mut self, v: String) -> &mut Self {
+        self.label = v;
+        self
+    }
+
+    pub fn border(&mut self, v: Border) -> &mut Self {
+        self.border = Some(v);
+        self
+    }
+
+    pub fn background(&mut self, v: UiColor) -> &mut Self {
+        self.background = v;
+        self
+    }
 }
 
 impl<T: PartialEq> Drop for Dropdown<T> {
@@ -155,9 +180,6 @@ impl<T: PartialEq> Computed for Dropdown<T> {
     fn set_computed_height(&mut self, new_height: f32) {
         self.computed_height = Some(new_height);
     }
-
-    // Dropdown has no children.
-    fn compute_children_size(&mut self, _parent_properties: &super::ParentProperties) {}
 }
 
 impl<T: PartialEq + Clone> UiNode for Dropdown<T> {
@@ -196,6 +218,8 @@ impl<T: PartialEq + Clone> UiNode for Dropdown<T> {
         let width = self.computed_width.unwrap();
         let height = self.computed_height.unwrap();
 
+        let cursor = context.cursor_screen_pos();
+
         let item_width_token = context.push_item_width(width);
 
         if let Some(cb) = context.begin_combo(self.label.clone(), self.get_label()) {
@@ -228,6 +252,8 @@ impl<T: PartialEq + Clone> UiNode for Dropdown<T> {
         }
 
         item_width_token.end();
+
+        context.set_cursor_screen_pos([cursor[0] + width, cursor[1] + height]);
     }
 }
 
@@ -281,13 +307,20 @@ impl Computed for DropdownBox {
             .unwrap()
             .set_computed_height(new_height);
     }
-
-    // Dropdown has no children.
-    fn compute_children_size(&mut self, _parent_properties: &super::ParentProperties) {}
 }
 
-pub trait DropdownChild {
-    fn dropdown<T: 'static + PartialEq + Clone>(&mut self) -> &mut Dropdown<T>;
+pub trait DropdownChild: Builder {
+    fn dropdown<T: 'static + PartialEq + Clone>(&mut self) -> &mut Dropdown<T> {
+        let dropdown_box = DropdownBox::new(Dropdown::<T>::new());
+        let children = self.parent().get_children_mut().unwrap();
+
+        children.push(UiElement::Dropdown(dropdown_box));
+
+        match children.last_mut().unwrap() {
+            UiElement::Dropdown(dropdown_box) => dropdown_box.downcast_mut::<T>().unwrap(),
+            _ => unreachable!("Dropdown not dropdowning :("),
+        }
+    }
 }
 
 pub trait ErasedDropdown: Any + UiNode + Computed {

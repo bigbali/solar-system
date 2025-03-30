@@ -9,7 +9,7 @@ use crate::ui::{apply_button_color, clear_button_color, element::rect::Rect, UiC
 
 use super::{
     flex::{FlexAxisAlign, FlexCrossAxisAlign},
-    Border, Computed, ParentProperties, Size, UiElement, UiElementType, UiNode,
+    Border, Builder, Computed, ParentProperties, Size, UiElement, UiElementType, UiNode,
 };
 
 // NOTE: this seems like a place where Size::FitContent would be great
@@ -107,10 +107,6 @@ impl Computed for Text {
     fn set_computed_height(&mut self, new_height: f32) {
         self.computed_height = Some(new_height);
     }
-
-    fn compute_children_size(&mut self, _parent_properties: &ParentProperties) {
-        return;
-    }
 }
 
 impl UiNode for Text {
@@ -144,10 +140,6 @@ impl UiNode for Text {
 
         let width = self.computed_width.unwrap();
         let height = self.computed_height.unwrap();
-
-        // Rect::new(Size::Pixels(width), Size::Pixels(height))
-        //     .background(self.background)
-        //     .build(context, draw_list);
 
         let text_size = context.calc_text_size(&self.text);
 
@@ -189,6 +181,15 @@ impl UiNode for Text {
     }
 }
 
-pub trait TextChild {
-    fn text(&mut self, text: &str) -> &mut Text;
+pub trait TextChild: Builder {
+    fn text(&mut self, text: &str) -> &mut Text {
+        let children = self.parent().get_children_mut().unwrap();
+
+        children.push(UiElement::Text(Text::new(text)));
+
+        match children.last_mut().unwrap() {
+            UiElement::Text(t) => t,
+            _ => unreachable!("Text is not texting :("),
+        }
+    }
 }

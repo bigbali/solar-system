@@ -106,22 +106,6 @@ pub fn spawn_system(
         Transform::from_translation(camera.single().translation + camera.single().forward() * 0.01),
         Planet {},
     ));
-
-    entity.with_children(|parent| {
-        parent
-            .spawn((
-                bevy_mod_billboard::BillboardText::default(),
-                bevy_mod_billboard::BillboardDepth(false),
-                TextLayout::new_with_justify(JustifyText::Left),
-                Transform::from_translation(Vec3::new(0.0, 0.2, 0.0))
-                    .with_scale(Vec3::splat(0.0001)),
-            ))
-            .with_child((
-                TextSpan::new("<TEST>".to_string()),
-                TextFont::default().with_font_size(60.0),
-                TextColor::from(Color::WHITE),
-            ));
-    });
 }
 
 /// If the player has opted to specify custom coordinates as the target for the spawned body, visualize the body's direction vector.

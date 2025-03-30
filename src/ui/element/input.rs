@@ -10,10 +10,13 @@ use std::{
 };
 
 use bevy::{color::LinearRgba, scene::ron::value};
+use imgui::{ColorStackToken, StyleStackToken};
 
 use crate::ui::UiColor;
 
-use super::{Border, Builder, Computed, HasChildren, Size, UiElement, UiElementType, UiNode};
+use super::{
+    rect::Rect, Border, Builder, Computed, HasChildren, Size, UiElement, UiElementType, UiNode,
+};
 
 thread_local! {
     static DROPDOWN_SELECTED_MAP: RefCell<HashMap<usize, i32>> = RefCell::new(HashMap::new());
@@ -23,6 +26,25 @@ thread_local! {
     static DROPDOWN_ID_INCR: AtomicUsize = AtomicUsize::new(0);
 }
 
+#[derive(Debug, Clone, Copy)]
+enum LabelPlacement {
+    Left,
+    Right,
+    Top,
+}
+
+// pub enum InputType {
+//     I32(InputI32),
+//     F32(InputF32),
+//     String(InputString),
+// }
+
+// pub struct InputI32Multiple;
+
+// pub struct Input {
+//     input: InputType,
+// }
+
 #[derive(Debug, Clone)]
 // TODO Input<T> where T: InputType::I32
 pub struct InputI32 {
@@ -30,8 +52,9 @@ pub struct InputI32 {
     width: Size,
     height: Size,
     border: Option<Border>,
-    background: UiColor,
-    label: String,
+    background: Option<UiColor>,
+    label: &'static str,
+    label_alignment: LabelPlacement,
     on_change: OnChangeCallback<i32>,
     step: i32,
     default_value: i32,
@@ -40,6 +63,9 @@ pub struct InputI32 {
 }
 
 impl InputI32 {
+    const INPUT_FIELD_MIN_WIDTH: f32 = 16.0;
+    const INPUT_FIELD_MIN_HEIGHT: f32 = 12.0;
+
     pub fn new() -> Self {
         Self::default()
     }
@@ -62,6 +88,16 @@ impl InputI32 {
         DROPDOWN_SELECTED_MAP.with_borrow(|map| *map.get(&self.id).unwrap_or(&self.default_value))
     }
 
+    pub fn width(&mut self, v: Size) -> &mut Self {
+        self.width = v;
+        self
+    }
+
+    pub fn height(&mut self, v: Size) -> &mut Self {
+        self.height = v;
+        self
+    }
+
     pub fn step(&mut self, v: i32) -> &mut Self {
         self.step = v;
         self
@@ -72,13 +108,18 @@ impl InputI32 {
         self
     }
 
-    pub fn label(&mut self, v: String) -> &mut Self {
+    pub fn label(&mut self, v: &'static str) -> &mut Self {
         self.label = v;
+        self
+    }
+
+    pub fn background(&mut self, v: UiColor) -> &mut Self {
+        self.background = Some(v);
         self
     }
 }
 
-impl Drop for InputI32 {
+impl<'a> Drop for InputI32 {
     fn drop(&mut self) {
         DROPDOWN_ID_INCR.with(|incr| {
             let _ = incr.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| {
@@ -92,15 +133,16 @@ impl Drop for InputI32 {
     }
 }
 
-impl Default for InputI32 {
+impl<'a> Default for InputI32 {
     fn default() -> Self {
         Self {
             id: InputI32::id_that_will_not_work_in_immediate_mode_oopsies(),
             width: Size::Pixels(120.0),
             height: Size::Pixels(48.0),
             border: None,
-            background: UiColor::from(LinearRgba::BLACK),
-            label: "Button".to_string(),
+            background: None,
+            label: "Button",
+            label_alignment: LabelPlacement::Top,
             on_change: OnChangeCallback(None),
             step: 1,
             default_value: 0,
@@ -110,7 +152,7 @@ impl Default for InputI32 {
     }
 }
 
-impl Computed for InputI32 {
+impl<'a> Computed for InputI32 {
     fn get_computed_width(&self) -> Option<f32> {
         self.computed_width
     }
@@ -127,10 +169,26 @@ impl Computed for InputI32 {
         self.computed_height = Some(new_height);
     }
 
-    fn compute_children_size(&mut self, _parent_properties: &super::ParentProperties) {}
+    fn calculate_min_width(&self, context: &imgui::Ui) -> Option<f32> {
+        match self.label_alignment {
+            LabelPlacement::Left | LabelPlacement::Right => {
+                Some(context.calc_text_size(&self.label)[0] + Self::INPUT_FIELD_MIN_WIDTH)
+            }
+            LabelPlacement::Top => Some(Self::INPUT_FIELD_MIN_WIDTH),
+        }
+    }
+
+    fn calculate_min_height(&self, context: &imgui::Ui) -> Option<f32> {
+        match self.label_alignment {
+            LabelPlacement::Left | LabelPlacement::Right => Some(Self::INPUT_FIELD_MIN_HEIGHT),
+            LabelPlacement::Top => {
+                Some(context.calc_text_size(&self.label)[1] + Self::INPUT_FIELD_MIN_HEIGHT)
+            }
+        }
+    }
 }
 
-impl UiNode for InputI32 {
+impl<'a> UiNode for InputI32 {
     fn get_width(&self) -> &Size {
         &self.width
     }
@@ -156,15 +214,57 @@ impl UiNode for InputI32 {
     }
 
     fn build(&self, context: &imgui::Ui, _draw_list: &imgui::DrawListMut) {
+        assert!(self.computed_width.is_some(), "Computed width is unset.");
+        assert!(self.computed_height.is_some(), "Computed height is unset.");
+
+        let width = self.computed_width.unwrap();
+        let height = self.computed_height.unwrap();
+
         let mut value = self.get_value();
+
+        let cursor = context.cursor_screen_pos();
+
+        Rect::draw(
+            context,
+            _draw_list,
+            cursor,
+            [
+                cursor[0] + self.computed_width.unwrap(),
+                cursor[1] + self.computed_height.unwrap(),
+            ],
+            self.background,
+            self.border,
+        );
+
+        let ax = context.push_item_width(width);
+        let mut style_stack: Vec<StyleStackToken> = Vec::new();
+
+        let x = context.clone_style().frame_border_size;
+
+        // style_stack.push(context.push_style_var(imgui::StyleVar::FramePadding([
+        //     4.0,
+        //     (height - context.current_font_size()) / 2.0 - x * 2.0,
+        // ])));
+
+        match self.label_alignment {
+            LabelPlacement::Left => {
+                context.text(&self.label);
+                context.same_line();
+            }
+            LabelPlacement::Top => {
+                context.text(&self.label);
+            }
+            _ => {}
+        }
+
+        let label = match self.label_alignment {
+            LabelPlacement::Right => self.label.to_string(),
+            _ => format!("##{}", &self.label),
+        };
 
         // Since we cannot get a direct mutable reference with a long enough lifetime,
         // let's just get the value, update it, and then set it back.
-        if context
-            .input_int(&self.label, &mut value)
-            .step(self.step)
-            .build()
-        {
+        if context.input_int(label, &mut value).step(self.step).build() {
             if let Some(callback) = &self.on_change.0 {
                 callback(value);
             }
@@ -172,23 +272,16 @@ impl UiNode for InputI32 {
             self.set_value(value);
         }
 
-        println!(
-            "map: {:#?}",
-            DROPDOWN_SELECTED_MAP.with_borrow(|v| v.clone())
-        );
+        ax.end();
+
+        context.set_cursor_screen_pos([cursor[0] + width, cursor[1] + height]);
     }
 }
 
 pub trait InputI32Child: Builder {
     fn input_i32(&mut self) -> &mut InputI32 {
-        let maybe_children = self.parent().get_children_mut();
+        let children = self.parent().get_children_mut().unwrap();
 
-        assert!(
-            maybe_children.is_some(),
-            "Parent of builder has no children"
-        );
-
-        let children = maybe_children.unwrap();
         children.push(UiElement::InputI32(InputI32::new()));
 
         match children.last_mut().unwrap() {

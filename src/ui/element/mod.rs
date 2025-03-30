@@ -17,9 +17,11 @@ pub mod root;
 pub mod text;
 pub mod window;
 
-pub trait BasicUiNode {
-    fn get_self(&self) -> &impl UiNode;
-}
+// pub trait BasicUiNode {
+//     fn get_self(&self) -> &impl UiNode;
+// }
+
+pub static mut UI_DEBUG: bool = false;
 
 pub trait UiNode {
     /// Returns the width of the element.
@@ -51,6 +53,16 @@ pub trait Computed {
     fn get_computed_height(&self) -> Option<f32>;
     fn set_computed_height(&mut self, new_height: f32);
 
+    /// Calculates the minimum width of `self`.
+    fn calculate_min_width(&self, context: &imgui::Ui) -> Option<f32> {
+        None
+    }
+
+    /// Calculates the minimum height of `self`.
+    fn calculate_min_height(&self, context: &imgui::Ui) -> Option<f32> {
+        None
+    }
+
     /// Recursively calculates the size of the element's children,
     /// so we already have the calculated size of the elements when we build them.\
     /// This simplified our rendering logic, and that tastes like candy.\
@@ -58,7 +70,9 @@ pub trait Computed {
     /// It mutates the element's children.
     /// Do consider that the element's own sizes are calculated by its parent.
     /// TODO: actually, why is it not its own trait if it needs to be invoked by the root node?
-    fn compute_children_size(&mut self, parent_properties: &ParentProperties);
+    fn compute_children_size(&mut self, context: &imgui::Ui, parent_properties: &ParentProperties) {
+        return;
+    }
 }
 
 pub trait HasChildren {
@@ -150,7 +164,9 @@ impl Computed for UiElement {
             fn set_computed_width(&mut self, new_width: f32);
             fn get_computed_height(&self) -> Option<f32>;
             fn set_computed_height(&mut self, new_height: f32);
-            fn compute_children_size(&mut self, parent_properties: &ParentProperties);
+            fn calculate_min_width(&self, context: &imgui::Ui) -> Option<f32>;
+            fn calculate_min_height(&self, context: &imgui::Ui) -> Option<f32>;
+            fn compute_children_size(&mut self, context: &imgui::Ui, parent_properties: &ParentProperties);
         }
     }
 }

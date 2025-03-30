@@ -5,7 +5,7 @@ use imgui::{ColorStackToken, StyleStackToken};
 
 use crate::ui::{apply_button_color, clear_button_color, UiColor};
 
-use super::{Border, Computed, ParentProperties, Size, UiElement, UiElementType, UiNode};
+use super::{Border, Builder, Computed, ParentProperties, Size, UiElement, UiElementType, UiNode};
 
 #[derive(Debug, Clone)]
 pub struct Button {
@@ -55,11 +55,6 @@ impl Computed for Button {
 
     fn set_computed_height(&mut self, new_height: f32) {
         self.computed_height = Some(new_height);
-    }
-
-    // Button can't have children,
-    fn compute_children_size(&mut self, _parent_properties: &ParentProperties) {
-        return;
     }
 }
 
@@ -139,8 +134,17 @@ impl UiNode for Button {
     }
 }
 
-pub trait ButtonChild {
-    fn button(&mut self) -> &mut Button;
+pub trait ButtonChild: Builder {
+    fn button(&mut self) -> &mut Button {
+        let children = self.parent().get_children_mut().unwrap();
+
+        children.push(UiElement::Button(Button::new()));
+
+        match children.last_mut().unwrap() {
+            UiElement::Button(b) => b,
+            _ => unreachable!("Button is not buttoning :("),
+        }
+    }
 }
 
 #[derive(Clone)]

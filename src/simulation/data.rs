@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use bevy::{color::palettes::tailwind, prelude::*, utils::HashMap};
+use bevy::{prelude::*, utils::HashMap};
 
 use crate::simulation::body::{Body, BodyType};
 

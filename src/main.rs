@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 
-use bevy_ui_anchor::AnchorUiPlugin;
 use material::saturn_rings::SaturnRingMaterial;
 use simulation::SimulationPlugin;
 use spawn::SpawnBodyPlugin;
@@ -16,7 +15,6 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(bevy_flycam::NoCameraPlayerPlugin)
         .add_plugins(bevy_mod_imgui::ImguiPlugin::default())
-        .add_plugins(bevy_mod_billboard::plugin::BillboardPlugin)
         .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin)
         .add_plugins(iyes_perf_ui::PerfUiPlugin)
         .add_plugins(SimulationPlugin)

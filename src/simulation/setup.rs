@@ -1,5 +1,4 @@
 use bevy::{color, prelude::*, render::camera};
-use bevy_ui_anchor::{AnchorTarget, AnchorUiNode, HorizontalAnchor, VerticalAnchor};
 
 use crate::{
     material::saturn_rings::SaturnRingMaterial,
@@ -19,8 +18,6 @@ pub fn initialize_bodies_system(
     let bodies = initialize_bodies(&asset_server);
 
     if let Some(bodies) = bodies {
-        let mut bodies_to_show_name_for: Vec<(Option<String>, Color, f32, Entity)> = Vec::new();
-
         for body in bodies {
             if body.metadata.name.as_ref().is_some_and(|n| n == "Sun") {
                 let sun = commands
@@ -54,13 +51,6 @@ pub fn initialize_bodies_system(
                     })
                     .id();
 
-                bodies_to_show_name_for.push((
-                    body.metadata.name.clone(),
-                    body.metadata.color.clone(),
-                    body.data.radius,
-                    sun,
-                ));
-
                 commands.insert_resource(Sun(sun));
             } else {
                 let mut entity = commands.spawn((
@@ -83,7 +73,7 @@ pub fn initialize_bodies_system(
                 entity.with_children(|parent| {
                     if body.metadata.name == Some("Saturn".to_string()) {
                         parent.spawn((
-                            /// TODO too faint, should probably use shader as initially planned
+                            // TODO too faint, should probably use shader as initially planned
                             Mesh3d(meshes.add(Mesh::from(Plane3d {
                                 half_size: Vec2::new(
                                     body.data.radius * 5.0,
@@ -103,13 +93,6 @@ pub fn initialize_bodies_system(
 
                 insert_type_marker(&mut entity, &body);
 
-                bodies_to_show_name_for.push((
-                    body.metadata.name.clone(),
-                    body.metadata.color.clone(),
-                    body.data.radius,
-                    entity.id(),
-                ));
-
                 if let Some(satellites) = body.satellites {
                     for satellite in satellites {
                         let satellite = satellite.read().unwrap();
@@ -128,26 +111,12 @@ pub fn initialize_bodies_system(
                         ));
 
                         insert_type_marker(&mut satellite_entity, &satellite);
-
-                        bodies_to_show_name_for.push((
-                            satellite.metadata.name.clone(),
-                            satellite.metadata.color.clone(),
-                            satellite.data.radius,
-                            satellite_entity.id(),
-                        ));
                     }
                 }
             }
         }
-
-        for (name, color, radius, id) in bodies_to_show_name_for {
-            create_body_name(&mut commands, name, color, radius, id);
-        }
     }
 }
-
-#[derive(Component)]
-pub struct CameraMarker {}
 
 pub fn spawn_player_system(mut commands: Commands, parameters: Res<SimulationParameters>) {
     commands
@@ -163,7 +132,6 @@ pub fn spawn_player_system(mut commands: Commands, parameters: Res<SimulationPar
         .with_children(|parent| {
             parent.spawn((
                 bevy::core_pipeline::bloom::Bloom::NATURAL,
-                CameraMarker {},
                 Camera3d::default(),
                 Camera {
                     hdr: true,
@@ -179,80 +147,6 @@ pub fn spawn_player_system(mut commands: Commands, parameters: Res<SimulationPar
                 bevy_flycam::FlyCam,
             ));
         });
-}
-
-const NAME_OFFSET_AU: f32 = 0.005;
-fn create_body_name(
-    commands: &mut Commands,
-    name: Option<String>,
-    color: Color,
-    radius: f32,
-    id: Entity,
-) {
-    // TODO system: get ca,era distance from body, and use that distance to increase vertical offset
-    commands
-        .spawn((
-            Node {
-                padding: UiRect::axes(Val::Px(8.0), Val::Px(4.0)),
-                border: UiRect::all(Val::Px(1.0)),
-                ..default()
-            },
-            BackgroundColor(Color::BLACK.with_alpha(0.5)),
-            BorderColor(color),
-            AnchorUiNode {
-                target: AnchorTarget::Entity(id),
-                offset: Some(Vec3::new(0.0, radius / 2.0 + NAME_OFFSET_AU, 0.0)),
-                anchorwidth: HorizontalAnchor::Mid,
-                anchorheight: VerticalAnchor::Mid,
-            },
-        ))
-        .with_children(|node| {
-            node.spawn((
-                Text(name.clone().unwrap_or("<unknown>".to_string())),
-                TextColor::from(Color::WHITE),
-            ));
-        });
-}
-
-// TODO something is fishy
-pub fn update_body_name_system(
-    body_query: Query<(&Body, &Transform)>,
-    mut anchor_query: Query<&mut AnchorUiNode>,
-    camera_query: Query<(&Camera, &GlobalTransform)>,
-    window_query: Query<&Window>,
-) {
-    let (camera, camera_transform) = camera_query.single();
-    let window = window_query.single();
-
-    // I measured the height of the node to be 32.0, but it would be cool to un-retard the implementation
-    // to actually query the height of the node
-    const MEASURED_HEIGHT_OF_NODE: f32 = 32.0;
-
-    for mut anchor in anchor_query.iter_mut() {
-        if let AnchorTarget::Entity(entity) = anchor.target {
-            let result = body_query.get(entity);
-
-            if let Ok((body, transform)) = result {
-                let on_screen_ndc = camera.world_to_ndc(camera_transform, transform.translation);
-
-                if let Some(ndc) = on_screen_ndc {
-                    let with_offset_ndc =
-                        ndc.with_y(ndc.y + MEASURED_HEIGHT_OF_NODE / window.height());
-
-                    let in_world = camera.ndc_to_world(camera_transform, with_offset_ndc);
-
-                    if let Some(in_world) = in_world {
-                        anchor.offset = Some(
-                            anchor
-                                .offset
-                                .unwrap()
-                                .with_y(in_world.y + NAME_OFFSET_AU + (body.data.radius / 2.0)),
-                        );
-                    }
-                }
-            }
-        }
-    }
 }
 
 fn insert_type_marker(entity: &mut EntityCommands, body: &Body) {

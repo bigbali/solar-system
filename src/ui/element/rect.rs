@@ -93,10 +93,6 @@ impl Computed for Rect {
     fn set_computed_height(&mut self, new_height: f32) {
         self.computed_height = Some(new_height);
     }
-
-    fn compute_children_size(&mut self, _parent_properties: &ParentProperties) {
-        return;
-    }
 }
 
 impl UiNode for Rect {

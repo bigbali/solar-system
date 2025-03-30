@@ -2,14 +2,13 @@ use std::ops::{Deref, DerefMut};
 
 use bevy::prelude::*;
 use imgui::ImColor32;
-// use flex::FlexAxisAlign;
-use left_window::left_window_system;
 use mint::Vector4;
-use right_window::right_window_system;
+use name_tag::{name_tag_setup_system, name_tag_update_system};
 use util::{active, hover, rgba};
 use window::{spawn_window::spawn_window_system, test_window::test_window_system};
 
-mod element;
+pub mod element;
+pub mod name_tag;
 // mod flex;
 mod left_window;
 mod right_window;
@@ -22,13 +21,15 @@ pub struct SimulationUiPlugin;
 impl Plugin for SimulationUiPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, performance_metrics_system)
+            .add_systems(PostStartup, name_tag_setup_system)
             .add_systems(
                 Update,
                 (
                     // left_window_system,
                     // right_window_system,
                     spawn_window_system,
-                    // test_window_system,
+                    test_window_system,
+                    name_tag_update_system,
                 ),
             );
     }
@@ -93,18 +94,18 @@ pub fn clear_button_color(stack: Vec<imgui::ColorStackToken>) {
 pub struct DefaultColor;
 
 impl DefaultColor {
-    pub const Text: [f32; 4] = rgba([255.0, 255.0, 255.0, 1.0]);
-    pub const Background: [f32; 4] = rgba([13.0, 13.0, 13.0, 1.0]);
-    pub const Button: [f32; 4] = rgba([26.0, 26.0, 26.0, 1.0]);
-    pub const ButtonHover: [f32; 4] = hover(Self::Button);
-    pub const ButtonActive: [f32; 4] = active(Self::Button);
-    pub const Input: [f32; 4] = Self::Button;
-    pub const InputBorder: [f32; 4] = rgba([38.0, 38.0, 38.0, 1.0]);
-    pub const Border: [f32; 4] = rgba([26.0, 26.0, 26.0, 1.0]);
+    pub const TEXT: [f32; 4] = rgba([255.0, 255.0, 255.0, 1.0]);
+    pub const BACKGROUND: [f32; 4] = rgba([13.0, 13.0, 13.0, 1.0]);
+    pub const BUTTON: [f32; 4] = rgba([26.0, 26.0, 26.0, 1.0]);
+    pub const BUTTON_HOVER: [f32; 4] = hover(Self::BUTTON);
+    pub const BUTTON_ACTIVE: [f32; 4] = active(Self::BUTTON);
+    pub const INPUT: [f32; 4] = Self::BUTTON;
+    pub const INPUT_BORDER: [f32; 4] = rgba([38.0, 38.0, 38.0, 1.0]);
+    pub const BORDER: [f32; 4] = rgba([26.0, 26.0, 26.0, 1.0]);
 }
 
 #[derive(Debug, Clone, Copy)]
-struct UiColor(Color);
+pub struct UiColor(Color);
 
 impl UiColor {
     pub const fn new(color: Color) -> Self {

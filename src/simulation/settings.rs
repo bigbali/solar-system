@@ -72,11 +72,20 @@ pub fn elapsed_time_update_system(
     elapsed_time.0 += parameters.time_step / UPDATE_FREQUENCY as f32;
 }
 
+use crate::ui::element::UI_DEBUG;
+
 pub fn params_override_system(mut params: ResMut<SimulationParameters>) {
     let args = env::args().collect::<Vec<_>>();
 
-    if args.len() < 3 {
+    info!("Args: {:?}", args);
+
+    if args.len() < 2 {
         return;
+    }
+
+    if args[1] == "debug" {
+        info!("Debug mode enabled");
+        unsafe { UI_DEBUG = true };
     }
 
     for arg in args[1..args.len()].chunks_exact(2) {

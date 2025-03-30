@@ -1,16 +1,14 @@
-use std::{collections::HashMap, rc::Weak};
+use std::{panic::Location, sync::atomic};
 
-use bevy::color::{Color, LinearRgba};
 use imgui::DrawListMut;
 
-use crate::ui::UiColor;
+use mint::Vector2 as MintVec2;
+
+use crate::ui::{element::rect::Rect, window::test_window::IS_SHOW_UNNAMED_ELEMENTS, UiColor};
 
 use super::{
-    button::{Button, ButtonChild},
-    dropdown::{Dropdown, DropdownBox, DropdownChild},
-    input::InputI32Child,
-    text::{Text, TextChild},
-    Border, Builder, Computed, ParentProperties, Size, UiElement, UiElementType, UiNode,
+    button::ButtonChild, dropdown::DropdownChild, input::InputI32Child, text::TextChild, Border,
+    Builder, Computed, ParentProperties, Size, UiElement, UiElementType, UiNode,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -34,11 +32,17 @@ pub enum FlexCrossAxisAlign {
     Center,
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ComputedOverflow {
+    pub x: Option<u32>,
+    pub y: Option<u32>,
+}
+
 pub struct FlexBuilder<'a> {
     parent: &'a mut Flex,
 }
 
-impl Builder for FlexBuilder<'_> {
+impl<'a> Builder for FlexBuilder<'a> {
     #[allow(refining_impl_trait)]
     fn parent(&mut self) -> &mut Flex {
         self.parent
@@ -60,6 +64,8 @@ pub struct Flex {
     computed_width: Option<f32>,
     computed_height: Option<f32>,
     computed_axis_available_space: Option<f32>,
+    computed_overflow: ComputedOverflow,
+    debug_id: Option<&'static str>,
 }
 
 impl Default for Flex {
@@ -78,6 +84,8 @@ impl Default for Flex {
             computed_width: None,
             computed_height: None,
             computed_axis_available_space: None,
+            computed_overflow: ComputedOverflow::default(),
+            debug_id: None,
         }
     }
 }
@@ -107,17 +115,10 @@ impl UiNode for Flex {
         UiElementType::Flex
     }
 
-    fn build(
-        &self,
-        context: &imgui::Ui,
-        draw_list: &DrawListMut, /* cascading_override: Override */
-    ) {
+    fn build(&self, context: &imgui::Ui, draw_list: &DrawListMut) {
         match self.direction {
-            FlexDirection::Row => self.build_row(context, draw_list /* cascading_override */),
-            FlexDirection::Column => {
-                // self.build_experimental(context, draw_list /* cascading_override */)
-                self.build_column(context, draw_list)
-            }
+            FlexDirection::Row => self.build_row(context, draw_list),
+            FlexDirection::Column => self.build_column(context, draw_list),
         }
     }
 }
@@ -139,7 +140,11 @@ impl Computed for Flex {
         self.computed_height = Some(new_height);
     }
 
-    fn compute_children_size(&mut self, _parent_properties: &ParentProperties) {
+    fn compute_children_size(
+        &mut self,
+        context: &imgui::Ui,
+        _parent_properties: &ParentProperties,
+    ) {
         assert!(self.computed_width.is_some(), "Computed width is unset.");
         assert!(self.computed_height.is_some(), "Computed height is unset.");
 
@@ -163,34 +168,50 @@ impl Computed for Flex {
         for child in &mut self.children {
             match self.direction {
                 FlexDirection::Row => {
-                    // Calculate axis space distribution
+                    let min_height = child.calculate_min_height(context);
+
+                    // Calculate axis space distribution (NOTE: the actual sizes are calculated a bit later, a couple of lines below)
                     match child.get_width() {
                         Size::Pixels(p) => child_axis_pixels += p,
                         Size::Percentage(p) => child_axis_percentage += p,
                         Size::Auto => child_axis_auto_count += 1,
                     }
 
-                    // Set cross-axis sizes
-                    child.set_computed_height(match child.get_height() {
+                    let height = match child.get_height() {
                         Size::Pixels(p) => *p,
                         Size::Percentage(p) => available_height * p / 100.0,
                         Size::Auto => available_height,
-                    });
+                    };
+
+                    // If the minimum height is larger than the actual height, use the minimum height
+                    let applied_height = min_height
+                        .and_then(|min| height.lt(&min).then_some(min))
+                        .unwrap_or(height);
+
+                    // Set cross-axis sizes
+                    child.set_computed_height(applied_height);
                 }
                 FlexDirection::Column => {
-                    // Calculate axis space distribution
+                    let min_width = child.calculate_min_width(context);
+
                     match child.get_height() {
                         Size::Pixels(p) => child_axis_pixels += p,
                         Size::Percentage(p) => child_axis_percentage += p,
                         Size::Auto => child_axis_auto_count += 1,
                     }
 
-                    // Set cross-axis sizes
-                    child.set_computed_width(match child.get_width() {
+                    let width = match child.get_width() {
                         Size::Pixels(p) => *p,
                         Size::Percentage(p) => available_width * p / 100.0,
                         Size::Auto => available_width,
-                    });
+                    };
+
+                    let applied_width = min_width
+                        .and_then(|min| width.lt(&min).then_some(min))
+                        .unwrap_or(width);
+
+                    // Set cross-axis sizes
+                    child.set_computed_width(applied_width);
                 }
             }
         }
@@ -215,6 +236,9 @@ impl Computed for Flex {
             }
         };
 
+        // TODO: uncomment if feeling like implementing overflow, lol
+        // let mut axis_remaining_space = axis_available_space;
+
         let mut contains_auto = false;
 
         let self_properties = ParentProperties {
@@ -229,6 +253,8 @@ impl Computed for Flex {
             // The cross-axis size has already been set by the previous loop
             match self.direction {
                 FlexDirection::Row => {
+                    let min_axis_size = child.calculate_min_width(context);
+
                     let axis_size = match child.get_width() {
                         Size::Pixels(p) => *p,
                         Size::Percentage(p) => available_width * p / 100.0,
@@ -237,9 +263,16 @@ impl Computed for Flex {
                             axis_available_space / child_axis_auto_count as f32
                         }
                     };
-                    child.set_computed_width(axis_size);
+
+                    let applied_axis_size = min_axis_size
+                        .and_then(|min| axis_size.lt(&min).then_some(min))
+                        .unwrap_or(axis_size);
+
+                    child.set_computed_width(applied_axis_size);
                 }
                 FlexDirection::Column => {
+                    let min_axis_size = child.calculate_min_height(context);
+
                     let axis_size = match child.get_height() {
                         Size::Pixels(p) => *p,
                         Size::Percentage(p) => available_height * p / 100.0,
@@ -249,17 +282,22 @@ impl Computed for Flex {
                         }
                     };
 
-                    child.set_computed_height(axis_size);
+                    let applied_axis_size = min_axis_size
+                        .and_then(|min| axis_size.lt(&min).then_some(min))
+                        .unwrap_or(axis_size);
+
+                    child.set_computed_height(applied_axis_size);
                 }
             }
 
-            child.compute_children_size(&self_properties);
+            child.compute_children_size(context, &self_properties);
         }
 
         // If there are any Auto-sized children, they fill all the available space, thus there is None left
         self.computed_axis_available_space = match contains_auto {
             true => None,
-            false => Some(axis_available_space),
+            false => Some(axis_available_space), // FIXME does not account for overflow and children
+                                                 // where child.min_size > child.size
         };
     }
 }
@@ -315,6 +353,37 @@ impl Flex {
         self
     }
 
+    pub fn debug_id(&mut self, id: &'static str) -> &mut Self {
+        self.debug_id = Some(id);
+        self
+    }
+
+    #[track_caller]
+    fn move_cursor(
+        &self,
+        context: &imgui::Ui,
+        new_position: impl Into<MintVec2<f32>> + Clone,
+        caller: &'static str,
+    ) {
+        let location = Location::caller();
+
+        if !IS_SHOW_UNNAMED_ELEMENTS.load(atomic::Ordering::SeqCst) && self.debug_id.is_none() {
+            context.set_cursor_screen_pos(new_position);
+            return;
+        } else {
+            crate::ui::window::test_window::MOVE_CURSOR_CALLS.with(|calls| {
+                calls.borrow_mut().push((
+                    new_position.clone().into().into(),
+                    self.debug_id,
+                    caller,
+                    location.line(),
+                ));
+            });
+        }
+
+        context.set_cursor_screen_pos(new_position);
+    }
+
     fn build_row(&self, context: &imgui::Ui, draw_list: &DrawListMut) {
         assert!(self.computed_width.is_some(), "Computed width is unset.");
         assert!(self.computed_height.is_some(), "Computed height is unset.");
@@ -333,33 +402,14 @@ impl Flex {
             (starting_position[1] + height - halfborder),
         ];
 
-        let starting_position_outer_edge = [
-            (starting_position[0] - halfborder),
-            (starting_position[1] - halfborder),
-        ];
-        let ending_position_outer_edge = [
-            (ending_position[0] + halfborder),
-            (ending_position[1] + halfborder),
-        ];
-
-        if let Some(fill) = self.fill {
-            draw_list
-                .add_rect(starting_position, ending_position, fill)
-                .filled(true)
-                .build();
-        }
-
-        // NOTE if let some self.border???
-        if self.border.is_some() {
-            draw_list
-                .add_rect(
-                    starting_position,
-                    ending_position,
-                    self.border.unwrap().color,
-                )
-                .thickness(border)
-                .build();
-        }
+        Rect::draw(
+            context,
+            draw_list,
+            starting_position,
+            ending_position,
+            self.fill,
+            self.border,
+        );
 
         let number_of_children = self.children.len();
 
@@ -396,40 +446,46 @@ impl Flex {
                 if i == 0 {
                     match self.axis_align_items {
                         FlexAxisAlign::End => {
-                            context.set_cursor_screen_pos([
-                                inner_cursor[0] + axis_empty_space,
-                                vertical_adjusted_start,
-                            ]);
+                            self.move_cursor(
+                                context,
+                                [inner_cursor[0] + axis_empty_space, vertical_adjusted_start],
+                                "build_row, i == 0, FlexAxisAlign::End",
+                            );
                         }
-                        _ => context
-                            .set_cursor_screen_pos([inner_cursor[0], vertical_adjusted_start]),
+                        _ => self.move_cursor(
+                            context,
+                            [inner_cursor[0], vertical_adjusted_start],
+                            "build_row, i == 0, FlexAxisAlign::_",
+                        ),
                     }
                 } else {
                     match self.axis_align_items {
                         FlexAxisAlign::Between => {
-                            context.set_cursor_screen_pos([
-                                inner_cursor[0] + calculated_gap,
-                                vertical_adjusted_start,
-                            ]);
+                            self.move_cursor(
+                                context,
+                                [inner_cursor[0] + calculated_gap, vertical_adjusted_start],
+                                "build_row, i != 0, FlexAxisAlign::Between",
+                            );
                         }
-                        _ => context.set_cursor_screen_pos([
-                            inner_cursor[0] + self.gap,
-                            vertical_adjusted_start,
-                        ]),
+                        _ => self.move_cursor(
+                            context,
+                            [inner_cursor[0] + self.gap, vertical_adjusted_start],
+                            "build_row, i != 0, FlexAxisAlign::_",
+                        ),
                     }
                 }
 
-                child.build(context, &draw_list);
+                let cursor_right_before_drawing_child = context.cursor_screen_pos();
 
-                // Tell ImGui that we intend to render the next child on the same line
-                context.same_line_with_spacing(0.0, 0.0);
+                child.build(context, &draw_list);
             }
         }
 
-        context.set_cursor_screen_pos([
-            ending_position_outer_edge[0],
-            starting_position_outer_edge[1],
-        ]);
+        self.move_cursor(
+            context,
+            [ending_position[0], ending_position[1]],
+            "build_row end",
+        );
     }
 
     fn build_column(&self, context: &imgui::Ui, draw_list: &DrawListMut) {
@@ -443,6 +499,7 @@ impl Flex {
         let halfborder = border / 2.0;
 
         let cursor = context.cursor_screen_pos();
+
         let starting_position = [
             (cursor[0] + halfborder).floor(),
             (cursor[1] + halfborder).floor(),
@@ -452,23 +509,14 @@ impl Flex {
             (starting_position[1] + height - halfborder).floor(),
         ];
 
-        if let Some(fill) = self.fill {
-            draw_list
-                .add_rect(starting_position, ending_position, fill)
-                .filled(true)
-                .build();
-        }
-
-        if self.border.is_some() {
-            draw_list
-                .add_rect(
-                    starting_position,
-                    ending_position,
-                    self.border.unwrap().color,
-                )
-                .thickness(border)
-                .build();
-        }
+        Rect::draw(
+            context,
+            draw_list,
+            starting_position,
+            ending_position,
+            self.fill,
+            self.border,
+        );
 
         let number_of_children = self.children.len();
 
@@ -505,42 +553,59 @@ impl Flex {
                 if i == 0 {
                     match self.axis_align_items {
                         FlexAxisAlign::End => {
-                            context.set_cursor_screen_pos([
-                                cross_axis_adjusted_start,
-                                inner_cursor[1] + axis_empty_space,
-                            ]);
+                            self.move_cursor(
+                                context,
+                                [
+                                    cross_axis_adjusted_start,
+                                    inner_cursor[1] + axis_empty_space,
+                                ],
+                                "build_column, i == 0, FlexAxisAlign::End",
+                            );
                         }
                         FlexAxisAlign::Center => {
-                            context.set_cursor_screen_pos([
-                                cross_axis_adjusted_start,
-                                inner_cursor[1] + axis_empty_space / 2.0,
-                            ]);
+                            self.move_cursor(
+                                context,
+                                [
+                                    cross_axis_adjusted_start,
+                                    inner_cursor[1] + axis_empty_space / 2.0,
+                                ],
+                                "build_column, i == 0, FlexAxisAlign::Center",
+                            );
                         }
-                        _ => context
-                            .set_cursor_screen_pos([cross_axis_adjusted_start, inner_cursor[1]]),
+                        _ => self.move_cursor(
+                            context,
+                            [cross_axis_adjusted_start, inner_cursor[1]],
+                            "build_column, i == 0, FlexAxisAlign::_",
+                        ),
                     }
                 } else {
                     match self.axis_align_items {
                         FlexAxisAlign::Between => {
-                            context.set_cursor_screen_pos([
-                                cross_axis_adjusted_start,
-                                inner_cursor[1]
-                                    + calculated_gap
-                                    + self.children[i - 1].get_computed_height().unwrap(),
-                            ]);
+                            self.move_cursor(
+                                context,
+                                [
+                                    cross_axis_adjusted_start,
+                                    inner_cursor[1] + calculated_gap, // + self.children[i - 1].get_computed_height().unwrap(),
+                                ],
+                                "build_column, i != 0, FlexAxisAlign::Between",
+                            );
                         }
-                        FlexAxisAlign::End => context.set_cursor_screen_pos([
-                            cross_axis_adjusted_start,
-                            inner_cursor[1]
-                                + self.gap
-                                + self.children[i - 1].get_computed_height().unwrap(),
-                        ]),
-                        _ => context.set_cursor_screen_pos([
-                            cross_axis_adjusted_start,
-                            inner_cursor[1]
-                                + self.gap
-                                + self.children[i - 1].get_computed_height().unwrap(),
-                        ]),
+                        FlexAxisAlign::End => self.move_cursor(
+                            context,
+                            [
+                                cross_axis_adjusted_start,
+                                inner_cursor[1] + self.gap, // + self.children[i - 1].get_computed_height().unwrap(),
+                            ],
+                            "build_column, i != 0, FlexAxisAlign::End",
+                        ),
+                        _ => self.move_cursor(
+                            context,
+                            [
+                                cross_axis_adjusted_start,
+                                inner_cursor[1] + self.gap, // + self.children[i - 1].get_computed_height().unwrap(),
+                            ],
+                            "build_column, i != 0, FlexAxisAlign::_",
+                        ),
                     }
                 }
 
@@ -548,57 +613,29 @@ impl Flex {
             }
         }
 
-        context.set_cursor_screen_pos([starting_position[0], ending_position[1]]);
+        self.move_cursor(
+            context,
+            [ending_position[0], ending_position[1]],
+            "build_column end",
+        );
     }
 }
 
-pub trait FlexChild {
-    fn flex(&mut self) -> &mut Flex;
-}
-
-impl<'a> FlexChild for FlexBuilder<'a> {
+pub trait FlexChild: Builder {
     fn flex(&mut self) -> &mut Flex {
-        self.parent.children.push(UiElement::Flex(Flex::new()));
+        let children = self.parent().get_children_mut().unwrap();
 
-        match self.parent.children.last_mut().unwrap() {
-            UiElement::Flex(flex) => flex,
+        children.push(UiElement::Flex(Flex::new()));
+
+        match children.last_mut().unwrap() {
+            UiElement::Flex(f) => f,
             _ => unreachable!("Flex is not flexing :("),
         }
     }
 }
 
-impl<'a> TextChild for FlexBuilder<'a> {
-    fn text(&mut self, text: &str) -> &mut Text {
-        self.parent.children.push(UiElement::Text(Text::new(text)));
-
-        match self.parent.children.last_mut().unwrap() {
-            UiElement::Text(text) => text,
-            _ => unreachable!("Flex is not flexing :("),
-        }
-    }
-}
-
-impl<'a> ButtonChild for FlexBuilder<'a> {
-    fn button(&mut self) -> &mut Button {
-        self.parent.children.push(UiElement::Button(Button::new()));
-
-        match self.parent.children.last_mut().unwrap() {
-            UiElement::Button(button) => button,
-            _ => unreachable!("Button is not buttoning :("),
-        }
-    }
-}
-
-impl<'a> DropdownChild for FlexBuilder<'a> {
-    fn dropdown<T: 'static + PartialEq + Clone>(&mut self) -> &mut Dropdown<T> {
-        let dropdown_box = DropdownBox::new(Dropdown::<T>::new());
-        self.parent.children.push(UiElement::Dropdown(dropdown_box));
-
-        match self.parent.children.last_mut().unwrap() {
-            UiElement::Dropdown(dropdown_box) => dropdown_box.downcast_mut::<T>().unwrap(),
-            _ => unreachable!("Dropdown not dropdowning :("),
-        }
-    }
-}
-
+impl<'a> FlexChild for FlexBuilder<'a> {}
+impl<'a> TextChild for FlexBuilder<'a> {}
+impl<'a> ButtonChild for FlexBuilder<'a> {}
+impl<'a> DropdownChild for FlexBuilder<'a> {}
 impl<'a> InputI32Child for FlexBuilder<'a> {}

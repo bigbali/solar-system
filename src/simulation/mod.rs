@@ -1,6 +1,4 @@
 use bevy::prelude::*;
-use bevy_ui_anchor::AnchorUiPlugin;
-use setup::CameraMarker;
 
 pub mod body;
 pub mod data;
@@ -21,19 +19,13 @@ impl Plugin for SimulationPlugin {
                 Startup,
                 (setup::initialize_bodies_system, setup::spawn_player_system),
             )
-            .add_systems(
-                Update,
-                (
-                    body::follow_body_system,
-                    gizmo::body_gizmo_system,
-                    setup::update_body_name_system,
-                ),
-            )
+            .add_systems(Update, (body::follow_body_system, gizmo::body_gizmo_system))
             .add_systems(
                 FixedUpdate,
                 (
                     physics::gravity_system,
                     trajectory::precalculate_trajectory_system,
+                    trajectory::live_trajectory_projection_system,
                     settings::elapsed_time_update_system,
                 ),
             )
@@ -43,11 +35,11 @@ impl Plugin for SimulationPlugin {
             .insert_resource(settings::ElapsedTime::default())
             .insert_resource(trajectory::Trajectories::default())
             .insert_resource(trajectory::CalculateTrajectory::default())
+            .insert_resource(trajectory::LiveTrajectoryPreview::default())
             .insert_resource(Time::<Fixed>::from_hz(60.0))
             .insert_resource(bevy_flycam::MovementSettings {
                 sensitivity: 0.00012,
                 speed: 1.0,
-            })
-            .add_plugins(AnchorUiPlugin::<CameraMarker>::new());
+            });
     }
 }
